@@ -4,8 +4,8 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     # Application
-    APP_NAME: str = "RecycleBottles"
-    DEBUG: bool = True
+    APP_NAME: str = "ReValue"
+    DEBUG: bool = False
     API_PREFIX: str = "/api"
 
     # Security
@@ -16,18 +16,21 @@ class Settings(BaseSettings):
     # PostgreSQL
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
-    POSTGRES_DB: str = "recycle_bottles"
+    POSTGRES_DB: str = "revalue"
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres"
 
     # MongoDB
     MONGODB_URI: str = "mongodb://localhost:27017"
-    MONGODB_DB: str = "recycle_bottles"
+    MONGODB_DB: str = "revalue"
 
     # File Upload
     MAX_FILE_SIZE: int = 5 * 1024 * 1024  # 5MB
     ALLOWED_EXTENSIONS: set = {"jpg", "jpeg", "png", "webp"}
     UPLOAD_DIR: str = "uploads"
+
+    # CORS — comma-separated list of allowed origins
+    ALLOWED_ORIGINS: str = "http://localhost:3000"
 
     # Stripe
     STRIPE_SECRET_KEY: str = ""

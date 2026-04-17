@@ -1,9 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
 from datetime import timedelta
-from uuid import UUID
 
 from db.postgres_conn import get_db
 from models.postgres.user import User
@@ -14,34 +12,10 @@ from services.auth_service import (
 )
 from api.middleware.auth import get_current_user
 from config import get_settings
+from schemas.auth import UserRegister, TokenResponse, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 settings = get_settings()
-
-
-class UserRegister(BaseModel):
-    phone: str
-    password: str
-    name: str
-
-
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    user: dict
-
-
-class UserResponse(BaseModel):
-    id: UUID
-    phone: str
-    name: str
-    avatar_url: str | None = None
-    buyer_rating: float
-    seller_rating: float
-    total_transactions: int
-
-    class Config:
-        from_attributes = True
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)

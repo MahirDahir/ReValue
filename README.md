@@ -1,6 +1,6 @@
-# RecycleBottles
+# ReValue
 
-A cross-platform marketplace for recycling bottles, connecting sellers and buyers.
+A cross-platform marketplace for turning waste into money — sellers post any waste material (plastic, glass, metal, electronics, and more); buyers collect and pay.
 
 ## Features
 
@@ -12,7 +12,7 @@ A cross-platform marketplace for recycling bottles, connecting sellers and buyer
 - 📸 **Image Upload** — list bottles with photos
 - ⭐ **Rating System** — rate buyers and sellers after transactions
 - 📍 **Location** — address + coordinates per listing *(map picker planned — see Roadmap)*
-- 🧴🍾🥫♻️ **Bottle Type Icons** — Plastic, Glass, Aluminum, Mixed
+- 🧴🍾⚙️📱📦 **Waste Categories** — Plastic, Glass, Metal, Electronics, Other
 
 ## Tech Stack
 
@@ -27,6 +27,7 @@ A cross-platform marketplace for recycling bottles, connecting sellers and buyer
 ### Web Frontend
 - **Framework**: React 18 + Vite
 - **HTTP Client**: Axios
+- **Testing**: Vitest 2 + React Testing Library + MSW
 
 ### Infrastructure
 - PostgreSQL and MongoDB run as Docker containers
@@ -43,34 +44,90 @@ RecycleBottles/
 │   ├── models/
 │   │   ├── postgres/      # SQLAlchemy ORM models
 │   │   └── mongodb/       # MongoDB message model
-│   ├── services/          # auth_service, image_service
+│   ├── schemas/           # Pydantic v2 request/response schemas
+│   ├── services/          # Business logic (listing, message, user, rating, payment)
+│   ├── tests/
+│   │   └── integration/   # pytest integration tests (33 tests)
 │   ├── config.py
 │   ├── main.py
 │   └── requirements.txt
 └── web/
     ├── src/
-    │   ├── App.jsx        # All views and state
-    │   └── index.css      # Theming + layout
+    │   ├── api/            # Axios client layer (auth, listings, messages, users)
+    │   ├── components/     # Header, ListingCard, LoginPage, ChatView, etc.
+    │   ├── constants/      # BOTTLE_ICONS
+    │   ├── hooks/          # useAuth, useListings, useMessages, useGeocoding
+    │   ├── test/           # MSW server, handlers, renderWithContext helper
+    │   ├── App.jsx         # Slim orchestrator (~200 lines)
+    │   ├── AppContext.jsx  # Global state (token, user, mode, view, error)
+    │   └── index.css       # Theming + layout
     └── package.json
 ```
 
+## Running Tests
+
+### Backend (integration tests)
+
+With the databases running (via Docker Compose or the bat file):
+
+```cmd
+cd backend
+venv\Scripts\activate
+pytest -v
+```
+
+Tests run against a separate `recycle_bottles_test` database — production data is never touched.
+Each test starts with a clean slate (all tables truncated before every test).
+
+**33 tests** cover: auth, listings CRUD, permission enforcement, messaging, and user profiles.
+
+### Frontend (unit/component tests)
+
+No database or server needed — MSW intercepts all HTTP at the module level.
+
+```cmd
+cd web
+npm test
+```
+
+**14 tests** cover: axios auth interceptor, useAuth hook (login/logout/register), LoginPage form behaviour, and ListingCard rendering.
+
+---
+
 ## Getting Started
 
-### 1. Start Databases (Docker)
+### Quick Start — Docker Compose
 
 ```bash
-docker run -d --name recycle-postgres -p 5432:5432 \
-  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=recycle_bottles postgres:15
+# 1. Copy and fill in secrets
+cp .env.example .env
 
-docker run -d --name recycle-mongo -p 27017:27017 mongo:7
+# 2. Start everything (databases, backend, frontend)
+docker-compose up --build -d
+
+# 3. Open the app
+#    Web:      http://localhost:3000
+#    API docs: http://localhost:8000/docs
 ```
 
-Or if containers already exist:
+On first run the backend entrypoint automatically creates the `revalue` database and applies all Alembic migrations — no manual steps needed.
+
+To stop: `docker-compose down`  
+To wipe all data too: `docker-compose down -v`
+
+On Windows: double-click **`start-poc.bat`** / **`stop-poc.bat`**
+
+---
+
+### Manual Start (development only)
+
+#### 1. Start Databases (Docker)
+
 ```bash
-docker start recycle-postgres recycle-mongo
+docker-compose up -d postgres mongo
 ```
 
-### 2. Start Backend
+#### 2. Start Backend
 
 ```bash
 cd backend
@@ -82,7 +139,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 API available at: **http://localhost:8000**  
 Interactive docs: **http://localhost:8000/docs**
 
-### 3. Start Frontend
+#### 3. Start Frontend
 
 ```bash
 cd web
@@ -110,7 +167,7 @@ Web app at: **http://localhost:3000**
 ### Listings
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/api/listings/` | Browse all available listings (buyers) |
+| GET | `/api/listings/` | Browse all available listings; optional `?waste_category=` filter |
 | GET | `/api/listings/mine` | Get all own listings regardless of status (seller, requires Bearer token) |
 | POST | `/api/listings/` | Create listing (multipart form) |
 | GET | `/api/listings/{id}` | Get listing details |
@@ -157,8 +214,9 @@ Web app at: **http://localhost:3000**
 | id | UUID | |
 | seller_id | UUID | FK → users |
 | title, description | TEXT | |
-| bottle_type | VARCHAR | plastic / glass / aluminum / mixed |
+| waste_category | VARCHAR | plastic / glass / metal / electronics / other |
 | quantity | INT | |
+| unit | VARCHAR | kg / pieces |
 | status | VARCHAR | available / pending / sold / cancelled |
 | latitude, longitude | FLOAT | |
 | images | JSON | Array of URL paths |
@@ -186,6 +244,7 @@ Web app at: **http://localhost:3000**
 | BUG-07 | New seller listing not visible in buyer browser; sold status not reflected in buyer browser | Buyer auto-refresh reduced to 5 s; stale closure in interval fixed via `loadListingsRef`; `handleCreateListing` now fetches with `seller_id` so seller view stays consistent after create |
 | BUG-08 | All listings disappeared for seller after marking as sold / filtering by Sold | Added `GET /listings/mine` endpoint (JWT-identified, no UUID string comparison). Status changes now use an optimistic local state update — `allListings` is mapped in-place immediately after PUT succeeds, no re-fetch race condition possible |
 | BUG-09 | Sent chat messages not shown immediately | `sendMessage` now appends the POST response body directly to `messages` state instead of doing a second GET. Added 3 s polling while chat is open so incoming messages from the other party appear automatically |
+| BUG-10 | Backend crashed on login with "database recycle_bottles does not exist" | `.env` was not updated when DB was renamed to `revalue` (only `.env.example` was). Fixed `.env`; added `entrypoint.sh` that auto-creates the DB and runs `alembic upgrade head` on every container start — no manual steps required |
 
 ## Roadmap
 

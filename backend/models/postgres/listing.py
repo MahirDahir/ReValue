@@ -13,11 +13,12 @@ class ListingStatus:
     CANCELLED = "cancelled"
 
 
-class BottleType:
+class WasteCategory:
     PLASTIC = "plastic"
     GLASS = "glass"
-    ALUMINUM = "aluminum"
-    MIXED = "mixed"
+    METAL = "metal"
+    ELECTRONICS = "electronics"
+    OTHER = "other"
 
 
 class Listing(Base):
@@ -29,8 +30,9 @@ class Listing(Base):
     # Listing details
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    bottle_type = Column(String(50), nullable=False)  # plastic, glass, aluminum, mixed
+    waste_category = Column(String(50), nullable=False)  # plastic, glass, metal, electronics, other
     quantity = Column(Integer, nullable=False, default=1)
+    unit = Column(String(20), nullable=False, default="pieces")  # kg, pieces
     status = Column(String(20), default=ListingStatus.AVAILABLE, index=True)
 
     # Location

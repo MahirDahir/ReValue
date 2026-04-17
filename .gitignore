@@ -17,6 +17,7 @@ env/
 ENV/
 
 # Environment variables — never commit secrets
+.env
 backend/.env
 
 # Uploaded images
