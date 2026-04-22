@@ -10,6 +10,7 @@ import { useAuth } from './hooks/useAuth'
 import { useListings } from './hooks/useListings'
 import { useConversation } from './hooks/useConversation'
 import { useGeocoding } from './hooks/useGeocoding'
+import { useSSE } from './hooks/useSSE'
 import * as convApi from './api/conversations'
 
 import Header from './components/Header'
@@ -31,6 +32,7 @@ function App() {
     listings, activeFilter, listingUnreadCounts, buyerPendingCounts,
     allListingsRef,
     loadListings, loadSellerUnreadCounts, loadBuyerPendingCounts,
+    setSellerCounts, setBuyerPendingCounts,
     handleFilter,
     removeListing, changeListingStatus,
   } = useListings()
@@ -39,6 +41,7 @@ function App() {
     startWithPrice, loadConversation, loadMyListingConversation, doAction,
     markSeen, revealContact, loadListingConversations, loadMyConversations,
     loadContactsRevealed, resetConversation,
+    setConversation,
   } = useConversation()
   const { fetchLocationName, getLocationDisplay } = useGeocoding()
 
@@ -46,9 +49,6 @@ function App() {
   const [sellerStatusFilter, setSellerStatusFilter] = useState('')
   const [prevView, setPrevView]                     = useState('listings')
   const [historyTab, setHistoryTab]                 = useState('all')
-
-  const loadListingsRef    = useRef(null)
-  loadListingsRef.current  = loadListings
 
   // Init
   useEffect(() => {
@@ -58,31 +58,20 @@ function App() {
     }
   }, [token])
 
-  // Seller: refresh unread counts every 4s on listings view
-  useEffect(() => {
-    if (!token || mode !== 'seller' || view !== 'listings') return
-    const id = setInterval(() => loadSellerUnreadCounts(), 4000)
-    return () => clearInterval(id)
-  }, [token, mode, view])
-
-  // Seller: refresh buyer list every 4s while on negotiations view
   const selectedListingRef = useRef(null)
   selectedListingRef.current = selectedListing
-  useEffect(() => {
-    if (!token || mode !== 'seller' || view !== 'negotiations') return
-    const id = setInterval(() => {
-      if (selectedListingRef.current?.id) loadListingConversations(selectedListingRef.current.id)
-    }, 4000)
-    return () => clearInterval(id)
-  }, [token, mode, view])
+  const conversationRef = useRef(null)
+  conversationRef.current = conversation
 
-  // Buyer: refresh listings every 5s + refresh pending count every 4s
-  useEffect(() => {
-    if (!token || mode !== 'buyer') return
-    const listingId = setInterval(() => loadListingsRef.current?.(false), 5000)
-    const countId   = setInterval(() => loadBuyerPendingCounts(), 4000)
-    return () => { clearInterval(listingId); clearInterval(countId) }
-  }, [token, mode])
+  // SSE: real-time updates replace all polling
+  useSSE({
+    token,
+    onSellerCounts: setSellerCounts,
+    onBuyerCounts:  setBuyerPendingCounts,
+    onConversation: (data) => {
+      if (conversationRef.current?.id === data.id) setConversation(data)
+    },
+  })
 
   // Geocode listings
   useEffect(() => {
@@ -97,7 +86,7 @@ function App() {
     localStorage.setItem('mode', next)
     setSellerStatusFilter('')
     handleFilter('')
-    loadListings(next === 'seller')
+    loadListings(next === 'seller', true)
     setView('listings')
   }
 
@@ -179,7 +168,8 @@ function App() {
   }
 
   const buyerPendingTotal  = Object.values(buyerPendingCounts).reduce((a, b) => a + b, 0)
-  const sellerPendingTotal = Object.values(listingUnreadCounts).reduce((a, b) => a + b, 0)
+  // Header badge = unseen only (notification), not "your turn"
+  const sellerPendingTotal = Object.values(listingUnreadCounts).reduce((a, b) => a + (b.unseen ?? b), 0)
 
   const displayListings = mode === 'seller'
     ? listings.filter(l => sellerStatusFilter ? l.status === sellerStatusFilter : true)
@@ -240,7 +230,10 @@ function App() {
                 onStartWithPrice={handleStartWithPrice}
                 onAction={doAction}
                 onRevealContact={revealContact}
-                onMarkSeen={markSeen}
+                onMarkSeen={async (convId) => {
+                  await markSeen(convId)
+                  await Promise.all([loadBuyerPendingCounts(), loadSellerUnreadCounts()])
+                }}
                 onBack={() => {
                   if (prevView === 'history') {
                     loadMyConversations()
@@ -249,7 +242,6 @@ function App() {
                   } else if (prevView === 'negotiations') {
                     setView('negotiations')
                   } else {
-                    loadBuyerPendingCounts()
                     setView('listings')
                     setSelectedListing(null)
                     resetConversation()

@@ -7,6 +7,7 @@ from models.postgres.conversation_event import ConversationEvent
 from models.postgres.listing import Listing, ListingStatus
 from models.postgres.user import User
 from schemas.conversation import ConversationAction
+from services.sse_bus import notify as _notify
 
 
 VALID_ACTIONS = {
@@ -113,6 +114,9 @@ def start_with_price(db: Session, current_user: User, listing_id: UUID, price: f
             _log(db, existing, current_user, "price_suggested", str(price))
             db.commit()
             db.refresh(existing)
+            result = _to_dict(existing, db)
+            _push_conv_update(db, existing, result)
+            return result
         return _to_dict(existing, db)
 
     if listing.estimated_price is not None:
@@ -145,7 +149,9 @@ def start_with_price(db: Session, current_user: User, listing_id: UUID, price: f
 
     db.commit()
     db.refresh(conv)
-    return _to_dict(conv, db)
+    result = _to_dict(conv, db)
+    _push_conv_update(db, conv, result)
+    return result
 
 
 def get_conversation(db: Session, conv_id: UUID, current_user: User) -> dict:
@@ -338,7 +344,23 @@ def do_action(db: Session, conv_id: UUID, current_user: User, action_data: Conve
 
     db.commit()
     db.refresh(conv)
-    return _to_dict(conv, db)
+    result = _to_dict(conv, db)
+    _push_conv_update(db, conv, result)
+    return result
+
+
+def _push_conv_update(db: Session, conv: Conversation, conv_dict: dict):
+    """Push SSE updates to both parties after any conversation state change."""
+    seller = db.query(User).filter(User.id == conv.seller_id).first()
+    buyer  = db.query(User).filter(User.id == conv.buyer_id).first()
+    if seller:
+        seller_counts = get_pending_counts(db, seller)
+        _notify(str(conv.seller_id), {"kind": "seller_counts", "data": seller_counts})
+        _notify(str(conv.seller_id), {"kind": "conversation",  "data": conv_dict})
+    if buyer:
+        buyer_counts = get_buyer_pending_counts(db, buyer)
+        _notify(str(conv.buyer_id), {"kind": "buyer_counts", "data": buyer_counts})
+        _notify(str(conv.buyer_id), {"kind": "conversation", "data": conv_dict})
 
 
 def get_pending_counts(db: Session, current_user: User) -> dict:
@@ -346,26 +368,32 @@ def get_pending_counts(db: Session, current_user: User) -> dict:
         Conversation.seller_id == current_user.id
     ).all()
 
-    counts = {}
-    for conv in convs:
-        needs_action = False
-        if conv.status == ConversationStatus.CANCELLED:
-            needs_action = True
-        elif conv.status == ConversationStatus.PRICE_PENDING:
-            needs_action = True  # buyer reopened
-        elif conv.status == ConversationStatus.PRICE_SUGGESTED:
-            if conv.price_suggested_by and str(conv.price_suggested_by) != str(current_user.id):
-                needs_action = True
-        elif conv.status == ConversationStatus.PICKUP_SUGGESTED:
-            if conv.pickup_suggested_by and str(conv.pickup_suggested_by) != str(current_user.id):
-                needs_action = True
-        elif conv.status == ConversationStatus.PICKUP_AGREED:
-            needs_action = True
-        if needs_action and not conv.seen_by_seller:
-            lid = str(conv.listing_id)
-            counts[lid] = counts.get(lid, 0) + 1
+    # unseen = notification badge (disappears once opened)
+    # your_turn = persistent action indicator (stays until seller acts)
+    unseen_counts    = {}
+    your_turn_counts = {}
 
-    return counts
+    for conv in convs:
+        lid = str(conv.listing_id)
+        s   = conv.status
+        uid = str(current_user.id)
+
+        your_turn = (
+            s == ConversationStatus.CANCELLED or
+            s == ConversationStatus.PRICE_PENDING or
+            (s == ConversationStatus.PRICE_SUGGESTED and conv.price_suggested_by and str(conv.price_suggested_by) != uid) or
+            (s == ConversationStatus.PICKUP_SUGGESTED and conv.pickup_suggested_by and str(conv.pickup_suggested_by) != uid) or
+            s == ConversationStatus.PICKUP_AGREED
+        )
+
+        if your_turn:
+            your_turn_counts[lid] = your_turn_counts.get(lid, 0) + 1
+        if your_turn and not conv.seen_by_seller:
+            unseen_counts[lid] = unseen_counts.get(lid, 0) + 1
+
+    # Return combined structure: {listing_id: {unseen, your_turn}}
+    all_listings = set(list(unseen_counts.keys()) + list(your_turn_counts.keys()))
+    return {lid: {"unseen": unseen_counts.get(lid, 0), "your_turn": your_turn_counts.get(lid, 0)} for lid in all_listings}
 
 
 def get_buyer_pending_counts(db: Session, current_user: User) -> dict:
@@ -378,7 +406,12 @@ def get_buyer_pending_counts(db: Session, current_user: User) -> dict:
     counts = {}
     for conv in convs:
         needs_action = False
-        if conv.status == ConversationStatus.PRICE_SUGGESTED:
+        if conv.status == ConversationStatus.PRICE_PENDING:
+            needs_action = True
+        elif conv.status == ConversationStatus.PRICE_AGREED:
+            # price accepted — buyer should suggest pickup
+            needs_action = True
+        elif conv.status == ConversationStatus.PRICE_SUGGESTED:
             if conv.price_suggested_by and str(conv.price_suggested_by) != str(current_user.id):
                 needs_action = True
         elif conv.status == ConversationStatus.PICKUP_SUGGESTED:
@@ -477,4 +510,16 @@ def mark_sold_to_buyer(db: Session, listing_id: UUID, buyer_conv_id: UUID, curre
 
     db.commit()
     db.refresh(listing)
+    db.refresh(winning_conv)
+
+    # Notify winner
+    winner_dict = _to_dict(winning_conv, db)
+    _push_conv_update(db, winning_conv, winner_dict)
+
+    # Notify each cancelled buyer
+    db.expire_all()
+    for c in other_convs:
+        db.refresh(c)
+        _push_conv_update(db, c, _to_dict(c, db))
+
     return {"message": "Listing marked as sold", "actual_buyer_id": str(winning_conv.buyer_id)}

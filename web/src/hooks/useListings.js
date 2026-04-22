@@ -5,11 +5,15 @@ import * as convApi from '../api/conversations'
 
 export function useListings() {
   const { setError, setSuccess } = useAppContext()
-  const [allListings, setAllListings]                 = useState([])
-  const [listings, setListings]                       = useState([])
-  const [activeFilter, setActiveFilter]               = useState('')
-  const [listingUnreadCounts, setListingUnreadCounts]   = useState({})
-  const [buyerPendingCounts, setBuyerPendingCounts]     = useState({})
+  const [allListings, setAllListings]   = useState([])
+  const [listings, setListings]         = useState([])
+  const [activeFilter, setActiveFilter] = useState('')
+
+  // Seller: { listing_id: { unseen: N, your_turn: N } }
+  const [sellerCounts, setSellerCounts]         = useState({})
+  // Buyer: { listing_id: N }
+  const [buyerPendingCounts, setBuyerPendingCounts] = useState({})
+
   const allListingsRef = useRef([])
   allListingsRef.current = allListings
 
@@ -21,26 +25,30 @@ export function useListings() {
     applyFilter(allListings, type)
   }
 
-  const loadListings = async (isSeller = false) => {
+  const loadListings = async (isSeller = false, clearFirst = false) => {
+    if (clearFirst) { setAllListings([]); setListings([]) }
     try {
       const res = isSeller
         ? await listingsApi.getMyListings()
         : await listingsApi.getListings()
       setAllListings(res.data)
       applyFilter(res.data, activeFilter)
-      if (isSeller) loadSellerUnreadCounts()
+      if (isSeller) loadSellerCounts()
       else loadBuyerPendingCounts()
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to load listings')
     }
   }
 
-  const loadSellerUnreadCounts = async () => {
+  const loadSellerCounts = async () => {
     try {
       const res = await convApi.getPendingCounts()
-      setListingUnreadCounts(res.data)
+      setSellerCounts(res.data)
     } catch { /* non-fatal */ }
   }
+
+  // Keep old name as alias so App.jsx callers don't need to change
+  const loadSellerUnreadCounts = loadSellerCounts
 
   const loadBuyerPendingCounts = async () => {
     try {
@@ -54,7 +62,7 @@ export function useListings() {
     const updated = allListings.filter(l => l.id !== listingId)
     setAllListings(updated)
     applyFilter(updated, activeFilter)
-    setListingUnreadCounts(prev => { const n = { ...prev }; delete n[listingId]; return n })
+    setSellerCounts(prev => { const n = { ...prev }; delete n[listingId]; return n })
     setSuccess('Listing deleted')
     setTimeout(() => setSuccess(''), 2000)
   }
@@ -69,9 +77,13 @@ export function useListings() {
   }
 
   return {
-    allListings, listings, activeFilter, listingUnreadCounts, buyerPendingCounts,
+    allListings, listings, activeFilter,
+    sellerCounts, buyerPendingCounts,
+    // legacy alias still used in App.jsx
+    listingUnreadCounts: sellerCounts,
     allListingsRef,
-    loadListings, loadSellerUnreadCounts, loadBuyerPendingCounts,
+    loadListings, loadSellerCounts, loadSellerUnreadCounts, loadBuyerPendingCounts,
+    setSellerCounts, setBuyerPendingCounts,
     handleFilter, applyFilter,
     removeListing, changeListingStatus,
   }

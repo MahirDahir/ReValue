@@ -27,19 +27,21 @@ backend/
     auth.py                            # POST /auth/register, /login, GET /me
     listings.py                        # Listings CRUD + status
     conversations.py                   # Full negotiation state machine + events
+    events.py                          # GET /events/stream — SSE endpoint (query-param JWT)
     users.py / ratings.py / payments.py
-  api/middleware/auth.py               # JWT get_current_user dependency
+  api/deps.py                          # JWT get_current_user dependency
   models/postgres/
     user.py / listing.py               # Core models
     conversation.py                    # Conversation + ConversationStatus constants
     conversation_event.py              # Event log (actor, event_type, value, timestamp)
-  db/postgres_conn.py                  # SQLAlchemy session / get_db / Base
+  db/session.py                        # SQLAlchemy session / get_db / Base
   schemas/
     auth.py / listing.py / conversation.py   # Pydantic v2
   services/
     conversation_service.py            # State machine + event logging + mark-sold
     listing_service.py / user_service.py / rating_service.py / payment_service.py
     image_service.py                   # Cloudinary upload or local disk
+    sse_bus.py                         # In-memory pub/sub (subscribe/unsubscribe/notify)
   alembic/versions/
     0001_initial_schema.py             # users, listings, transactions, ratings
     0002_conversations.py              # conversations table
@@ -73,6 +75,7 @@ web/src/
     useListings.js                     # listings + pending counts
     useConversation.js                 # conversation state + markSeen + contactsRevealed
     useGeocoding.js                    # Nominatim reverse geocoding cache
+    useSSE.js                          # EventSource wrapper — seller_counts/buyer_counts/conversation events
   index.css                            # All CSS
 ```
 
@@ -123,11 +126,15 @@ price_pending → price_suggested → price_agreed
 - `useAuth.login` throws — it does NOT catch. Each form (LoginPage) owns its local error state.
 - Global `setError` is only for non-auth, non-form errors (listings, actions, etc.)
 
-### Polling
-- Seller: `loadSellerUnreadCounts` every 4s when on listings view
-- Buyer: `loadListings` every 5s + `loadBuyerPendingCounts` every 4s
-- Open conversation: `loadConversation` every 4s (in `useConversation`)
-- All interval callbacks use refs for stale-closure safety
+### Real-time updates (SSE)
+- All polling replaced by Server-Sent Events via `GET /api/events/stream?token=<jwt>`
+- `useSSE.js` opens an `EventSource` per logged-in user, handles three event kinds:
+  - `seller_counts` → `setSellerCounts(data)` — updates per-listing unread/your_turn badges
+  - `buyer_counts` → `setBuyerPendingCounts(data)` — updates header badge
+  - `conversation` → `setConversation(data)` — updates open conversation view in real time
+- Backend pushes via `sse_bus.notify()` after every `do_action`, `start_with_price`, and `mark_sold_to_buyer`
+- **Single worker required** — SSE uses in-memory asyncio.Queue; multi-worker breaks delivery
+- Nginx must have `proxy_buffering off` on the `/api` location for SSE to stream through
 
 ### Backend route ordering
 - In `conversations.py`: `/pending-counts`, `/buyer-pending-counts`, `/mine`, `/my-for-listing/{id}`, `/listing/{id}`, `/contacts-revealed/{id}` must all be declared **before** `/{conv_id}` to prevent FastAPI swallowing them as UUID params.
@@ -169,7 +176,7 @@ Tel Aviv, Israel: `latitude: 32.0853, longitude: 34.7818`
 - Structured JSON logging (structlog) — request method, path, status, duration_ms, ip per request
 - Sentry error tracking (opt-in via SENTRY_DSN env var)
 - DB connection pool: pool_size=5, max_overflow=10, pool_pre_ping, pool_recycle=1800
-- 4 uvicorn workers, `restart: always` in Docker Compose
+- **1 uvicorn worker** (SSE requires single process for in-memory queue), `restart: always` in Docker Compose
 - Upload atomicity: if DB commit fails after image upload, local files are cleaned up
 - Load tests: `backend/tests/load/locustfile.py` (locust)
 
@@ -185,6 +192,6 @@ Tel Aviv, Israel: `latitude: 32.0853, longitude: 34.7818`
 - Withdraw: both buyer and seller can cancel at any non-terminal state
 - Notifications: per-listing and header badge counts, clear on view
 - Mark Sold: buyer selector (only buyers who got contact), auto-cancels others
-- History: 3 tabs (Active / Done / Cancelled), filtered by current mode (buying vs selling), rows re-open conversation
+- History: 6 tabs (All / Your turn / Waiting / Negotiated / Sold / Cancelled), filtered by current mode (buying vs selling), rows re-open conversation
 - Seller: per-listing negotiations list with "Action needed" badge
 - Buyer: negotiate button with pending count badge per listing

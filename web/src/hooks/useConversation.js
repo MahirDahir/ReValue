@@ -109,17 +109,11 @@ export function useConversation() {
     setContact(null)
   }
 
-  // Poll for updates while a conversation is open
-  useEffect(() => {
-    if (!conversation?.id) return
-    const id = setInterval(() => loadConversation(conversation.id), 4000)
-    return () => clearInterval(id)
-  }, [conversation?.id])
-
   return {
     conversation, contact, listingConversations, myConversations, contactsRevealed,
     startWithPrice, loadConversation, loadMyListingConversation, doAction,
     markSeen, revealContact, loadListingConversations, loadMyConversations,
     loadContactsRevealed, resetConversation,
+    setConversation,
   }
 }

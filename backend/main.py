@@ -17,6 +17,7 @@ from api.routes.listings import router as listings_router
 from api.routes.ratings import router as ratings_router
 from api.routes.payments import router as payments_router
 from api.routes.conversations import router as conversations_router
+from api.routes.events import router as events_router
 
 settings = get_settings()
 
@@ -105,6 +106,7 @@ app.include_router(listings_router,      prefix=settings.API_PREFIX)
 app.include_router(ratings_router,       prefix=settings.API_PREFIX)
 app.include_router(payments_router,      prefix=settings.API_PREFIX)
 app.include_router(conversations_router, prefix=settings.API_PREFIX)
+app.include_router(events_router,        prefix=settings.API_PREFIX)
 
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")

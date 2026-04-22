@@ -56,5 +56,5 @@ done
 # Apply all pending migrations
 alembic upgrade head
 
-# Start the application — 4 workers for concurrency
-exec uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+# Single worker required — SSE uses in-memory queue (multi-worker breaks event delivery)
+exec uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1
