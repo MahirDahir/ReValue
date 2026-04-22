@@ -3,16 +3,22 @@ import { useAppContext } from '../AppContext'
 import { useAuth } from '../hooks/useAuth'
 
 export default function LoginPage() {
-  const { setError, setView } = useAppContext()
+  const { setView } = useAppContext()
   const { login } = useAuth()
-  const [form, setForm] = useState({ phone: '', password: '' })
+  const [form, setForm]   = useState({ phone: '', password: '' })
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setError('')
+    setLoading(true)
     try {
       await login(form.phone, form.password)
     } catch (err) {
-      setError(err.response?.data?.detail || 'Login failed')
+      setError(err.response?.data?.detail || 'Incorrect phone number or password')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -24,6 +30,9 @@ export default function LoginPage() {
           <h2>ReValue</h2>
           <p>Turn your waste into money</p>
         </div>
+        {error && (
+          <div className="error-message" style={{ marginBottom: '16px' }}>{error}</div>
+        )}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Phone Number</label>
@@ -45,11 +54,13 @@ export default function LoginPage() {
               required
             />
           </div>
-          <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Login</button>
+          <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
+            {loading ? 'Logging in…' : 'Login'}
+          </button>
         </form>
         <p style={{ marginTop: '16px', textAlign: 'center', color: '#888' }}>
           Don&apos;t have an account?{' '}
-          <button className="btn-link" onClick={() => { setError(''); setView('register') }}>Register</button>
+          <button className="btn-link" onClick={() => setView('register')}>Register</button>
         </p>
       </div>
     </div>

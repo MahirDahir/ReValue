@@ -1,30 +1,32 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field
+from typing import Optional, List
 
 
 class ListingCreate(BaseModel):
-    title: str
-    description: Optional[str] = None
+    title: str = Field(..., min_length=1, max_length=200)
+    description: Optional[str] = Field(None, max_length=2000)
     waste_category: str
-    quantity: int = 1
+    quantity: int = Field(1, ge=1, le=1_000_000)
     unit: str = "pieces"
-    latitude: float
-    longitude: float
-    address: Optional[str] = None
-    estimated_price: Optional[float] = None
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
+    address: Optional[str] = Field(None, max_length=500)
+    estimated_price: Optional[float] = Field(None, ge=0, le=1_000_000)
+    pickup_slots: Optional[List[dict]] = []
 
 
 class ListingUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    description: Optional[str] = Field(None, max_length=2000)
     waste_category: Optional[str] = None
-    quantity: Optional[int] = None
+    quantity: Optional[int] = Field(None, ge=1, le=1_000_000)
     unit: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    address: Optional[str] = None
-    estimated_price: Optional[float] = None
+    latitude: Optional[float] = Field(None, ge=-90, le=90)
+    longitude: Optional[float] = Field(None, ge=-180, le=180)
+    address: Optional[str] = Field(None, max_length=500)
+    estimated_price: Optional[float] = Field(None, ge=0, le=1_000_000)
     status: Optional[str] = None
+    pickup_slots: Optional[List[dict]] = None
 
 
 class ListingResponse(BaseModel):
@@ -43,6 +45,7 @@ class ListingResponse(BaseModel):
     images: list
     estimated_price: Optional[float]
     seller_rating: float
+    pickup_slots: Optional[list] = []
 
     class Config:
         from_attributes = True

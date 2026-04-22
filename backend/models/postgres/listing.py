@@ -46,8 +46,14 @@ class Listing(Base):
     # Pricing (negotiated via chat, but can have initial estimate)
     estimated_price = Column(Float, nullable=True)
 
+    # Seller's available pickup slots: [{"day": "monday", "start": "09:00", "end": "17:00"}, ...]
+    pickup_slots = Column(JSON, default=list, nullable=True)
+
+    # Set when seller confirms the actual buyer via "Mark Sold" flow
+    actual_buyer_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    seller = relationship("User", backref="listings")
+    seller = relationship("User", foreign_keys=[seller_id], backref="listings")

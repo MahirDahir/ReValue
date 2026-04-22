@@ -1,12 +1,14 @@
-from fastapi import APIRouter, Depends, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
+import json
 
 from db.postgres_conn import get_db
 from models.postgres.user import User
 from api.middleware.auth import get_current_user
 from schemas.listing import ListingUpdate, ListingResponse
+from services.listing_service import VALID_WASTE_CATEGORIES, VALID_STATUSES
 import services.listing_service as listing_service
 
 router = APIRouter(prefix="/listings", tags=["Listings"])
@@ -23,13 +25,22 @@ def create_listing(
     longitude: float = Form(...),
     address: Optional[str] = Form(None),
     estimated_price: Optional[float] = Form(None),
+    pickup_slots: Optional[str] = Form(None),
     images: List[UploadFile] = File(default=[]),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if not (-90 <= latitude <= 90):
+        raise HTTPException(status_code=400, detail="latitude must be between -90 and 90")
+    if not (-180 <= longitude <= 180):
+        raise HTTPException(status_code=400, detail="longitude must be between -180 and 180")
+    try:
+        slots = json.loads(pickup_slots) if pickup_slots else []
+    except (json.JSONDecodeError, TypeError):
+        slots = []
     return listing_service.create_listing(
         db, current_user, title, description, waste_category,
-        quantity, unit, latitude, longitude, address, estimated_price, images,
+        quantity, unit, latitude, longitude, address, estimated_price, images, slots,
     )
 
 
@@ -43,6 +54,14 @@ def get_listings(
     max_distance_km: Optional[float] = None,
     db: Session = Depends(get_db),
 ):
+    if waste_category and waste_category.lower() not in VALID_WASTE_CATEGORIES:
+        raise HTTPException(status_code=400, detail=f"Invalid waste_category. Must be one of: {VALID_WASTE_CATEGORIES}")
+    if latitude is not None and not (-90 <= latitude <= 90):
+        raise HTTPException(status_code=400, detail="latitude must be between -90 and 90")
+    if longitude is not None and not (-180 <= longitude <= 180):
+        raise HTTPException(status_code=400, detail="longitude must be between -180 and 180")
+    if max_distance_km is not None and not (0 < max_distance_km <= 5000):
+        raise HTTPException(status_code=400, detail="max_distance_km must be between 0 and 5000")
     return listing_service.get_listings(
         db, status_filter, seller_id, waste_category, latitude, longitude, max_distance_km,
     )

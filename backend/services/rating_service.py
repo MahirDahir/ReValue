@@ -1,7 +1,3 @@
-"""
-Business logic for ratings.
-"""
-
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -19,7 +15,7 @@ def create_rating(db: Session, current_user: User, rating_data: RatingCreate) ->
     if not transaction:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
 
-    if str(current_user.id) != str(transaction.buyer_id) and str(current_user.id) != str(transaction.seller_id):
+    if current_user.id not in (transaction.buyer_id, transaction.seller_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only rate users from your own transactions",

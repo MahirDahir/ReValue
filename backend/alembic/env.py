@@ -5,10 +5,11 @@ from alembic import context
 from config import get_settings
 
 # Import all models so they register with Base.metadata
-import models.postgres.user      # noqa
-import models.postgres.listing   # noqa
-import models.postgres.transaction  # noqa
-import models.postgres.rating    # noqa
+import models.postgres.user          # noqa
+import models.postgres.listing       # noqa
+import models.postgres.transaction   # noqa
+import models.postgres.rating        # noqa
+import models.postgres.conversation  # noqa
 
 from db.postgres_conn import Base
 
@@ -19,13 +20,15 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-# Override sqlalchemy.url with the value from our settings
+# Use DATABASE_URL if provided (Railway/PaaS), otherwise build from individual vars
 settings = get_settings()
-config.set_main_option(
-    "sqlalchemy.url",
+_url = settings.DATABASE_URL or (
     f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
-    f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}",
+    f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
 )
+if _url.startswith("postgres://"):
+    _url = _url.replace("postgres://", "postgresql://", 1)
+config.set_main_option("sqlalchemy.url", _url)
 
 
 def run_migrations_offline() -> None:

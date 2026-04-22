@@ -1,5 +1,10 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+from typing import Optional
+import sys
+
+
+_INSECURE_DEFAULTS = {"your-secret-key-change-in-production", "replace-with-a-strong-secret-key-at-least-32-chars"}
 
 
 class Settings(BaseSettings):
@@ -13,16 +18,15 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
-    # PostgreSQL
+    # PostgreSQL — individual vars (local/Docker Compose)
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_DB: str = "revalue"
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres"
 
-    # MongoDB
-    MONGODB_URI: str = "mongodb://localhost:27017"
-    MONGODB_DB: str = "revalue"
+    # PostgreSQL — single URL (Railway/PaaS overrides individual vars above)
+    DATABASE_URL: Optional[str] = None
 
     # File Upload
     MAX_FILE_SIZE: int = 5 * 1024 * 1024  # 5MB
@@ -36,6 +40,12 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
 
+    # Cloudinary (image storage — set in production, leave empty for local disk)
+    CLOUDINARY_URL: str = ""
+
+    # Sentry (error tracking — set in production, leave empty to disable)
+    SENTRY_DSN: str = ""
+
     # Maps
     MAPS_API_KEY: str = ""
 
@@ -45,4 +55,8 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings() -> Settings:
-    return Settings()
+    s = Settings()
+    if not s.DEBUG and s.SECRET_KEY in _INSECURE_DEFAULTS:
+        print("FATAL: SECRET_KEY is not set. Set a strong SECRET_KEY before running in production.", file=sys.stderr)
+        sys.exit(1)
+    return s

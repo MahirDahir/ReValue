@@ -1,7 +1,3 @@
-"""
-Business logic for payments (Stripe-stubbed).
-"""
-
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -60,14 +56,19 @@ def confirm_payment(db: Session, current_user: User, transaction_id: UUID) -> di
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
 
     transaction.payment_status = TransactionStatus.COMPLETED
-    transaction.status = TransactionStatus.COMPLETED
 
     listing = db.query(Listing).filter(Listing.id == transaction.listing_id).first()
     if listing:
         listing.status = ListingStatus.SOLD
 
-    buyer = db.query(User).filter(User.id == transaction.buyer_id).first()
-    seller = db.query(User).filter(User.id == transaction.seller_id).first()
+    users = {
+        u.id: u
+        for u in db.query(User).filter(
+            User.id.in_([transaction.buyer_id, transaction.seller_id])
+        ).all()
+    }
+    buyer = users.get(transaction.buyer_id)
+    seller = users.get(transaction.seller_id)
 
     if buyer:
         buyer.total_transactions += 1

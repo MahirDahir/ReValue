@@ -9,16 +9,14 @@ export default function ListingsPage({
   setSellerStatusFilter,
   onFilter,
   listingUnreadCounts,
-  chatListUnreadCounts,
+  buyerPendingCounts,
   getLocationDisplay,
-  suggestPrice,
-  setSuggestPrice,
-  onSendPriceSuggestion,
-  onChat,
+  onNegotiate,
   onConversations,
   onEdit,
   onDelete,
   onStatusChange,
+  onMarkSoldToBuyer,
 }) {
   const { error, success, mode, setView } = useAppContext()
 
@@ -57,19 +55,26 @@ export default function ListingsPage({
         </div>
 
         {mode === 'seller' && (
-          <div className="filters" style={{ marginBottom: '10px' }}>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '8px', marginBottom: '4px' }}>
             {[
-              { value: '', label: 'All Status' },
-              { value: 'available', label: 'Available' },
-              { value: 'sold', label: 'Sold' },
-              { value: 'pending', label: 'Pending' },
+              { value: '',          label: 'All',       emoji: '' },
+              { value: 'available', label: 'Available', emoji: '🟢' },
+              { value: 'sold',      label: 'Sold',      emoji: '🏷️' },
+              { value: 'pending',   label: 'Pending',   emoji: '⏳' },
             ].map(f => (
               <button
                 key={f.value}
-                className={`filter-btn ${sellerStatusFilter === f.value ? 'active' : ''}`}
                 onClick={() => setSellerStatusFilter(f.value)}
+                style={{
+                  padding: '5px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: 600,
+                  border: '2px solid',
+                  borderColor: sellerStatusFilter === f.value ? 'var(--primary)' : '#ddd',
+                  background: sellerStatusFilter === f.value ? 'var(--primary)' : 'white',
+                  color: sellerStatusFilter === f.value ? 'white' : '#555',
+                  cursor: 'pointer',
+                }}
               >
-                {f.label}
+                {f.emoji} {f.label}
               </button>
             ))}
           </div>
@@ -83,16 +88,14 @@ export default function ListingsPage({
               key={listing.id}
               listing={listing}
               listingUnreadCount={listingUnreadCounts[listing.id] || 0}
-              chatUnreadCount={chatListUnreadCounts[listing.id] || 0}
+              buyerPendingCount={buyerPendingCounts?.[listing.id] || 0}
               getLocationDisplay={getLocationDisplay}
-              suggestPrice={suggestPrice}
-              setSuggestPrice={setSuggestPrice}
-              onChat={onChat}
+              onNegotiate={onNegotiate}
               onConversations={onConversations}
               onEdit={onEdit}
               onDelete={onDelete}
               onStatusChange={onStatusChange}
-              onSendPriceSuggestion={onSendPriceSuggestion}
+              onMarkSoldToBuyer={onMarkSoldToBuyer}
             />
           ))}
         </div>

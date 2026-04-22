@@ -8,57 +8,49 @@ import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import { useAppContext } from './AppContext'
 import { useAuth } from './hooks/useAuth'
 import { useListings } from './hooks/useListings'
-import { useMessages } from './hooks/useMessages'
+import { useConversation } from './hooks/useConversation'
 import { useGeocoding } from './hooks/useGeocoding'
-import * as messagesApi from './api/messages'
+import * as convApi from './api/conversations'
 
 import Header from './components/Header'
 import LoginPage from './components/LoginPage'
 import RegisterPage from './components/RegisterPage'
 import ListingsPage from './components/ListingsPage'
-import CreateListingForm from './components/CreateListingForm'
-import EditListingForm from './components/EditListingForm'
-import ConversationsView from './components/ConversationsView'
-import ChatView from './components/ChatView'
+import ListingForm from './components/ListingForm'
+import ConversationView from './components/ConversationView'
+import NegotiationsListView from './components/NegotiationsListView'
+import HistoryView from './components/HistoryView'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow })
 
 function App() {
-  const { token, mode, setMode, view, setView, error, success, setError, setSuccess } = useAppContext()
+  const { token, user, mode, setMode, view, setView, setError, setSuccess } = useAppContext()
   const { loadUser, logout } = useAuth()
   const {
-    listings, activeFilter, listingUnreadCounts,
-    allListingsRef, setListingUnreadCounts,
-    loadListings, loadSellerUnreadCounts,
-    handleFilter, applyFilter,
+    listings, activeFilter, listingUnreadCounts, buyerPendingCounts,
+    allListingsRef,
+    loadListings, loadSellerUnreadCounts, loadBuyerPendingCounts,
+    handleFilter,
     removeListing, changeListingStatus,
   } = useListings()
   const {
-    messages, messageInput, setMessageInput,
-    conversations, setConversations, chatBuyer, setChatBuyer,
-    chatListUnreadCounts, setChatListUnreadCounts,
-    chatMessagesRef, isAtBottom, hasNewMessages,
-    isAtBottomRef,
-    loadMessages, loadConversations, loadBuyerUnreadCounts,
-    send, notifyBuyersOfSale,
-    scrollToBottom, handleChatScroll, resetChat,
-  } = useMessages()
+    conversation, contact, listingConversations, myConversations, contactsRevealed,
+    startWithPrice, loadConversation, loadMyListingConversation, doAction,
+    markSeen, revealContact, loadListingConversations, loadMyConversations,
+    loadContactsRevealed, resetConversation,
+  } = useConversation()
   const { fetchLocationName, getLocationDisplay } = useGeocoding()
 
   const [selectedListing, setSelectedListing]       = useState(null)
   const [sellerStatusFilter, setSellerStatusFilter] = useState('')
-  const [suggestPrice, setSuggestPrice]             = useState({})
+  const [prevView, setPrevView]                     = useState('listings')
+  const [historyTab, setHistoryTab]                 = useState('all')
 
-  // Stale-closure-safe refs for interval callbacks
   const loadListingsRef    = useRef(null)
-  const loadMessagesRef    = useRef(null)
-  const loadBuyerUnreadRef = useRef(null)
-  loadListingsRef.current    = loadListings
-  loadBuyerUnreadRef.current = loadBuyerUnreadCounts
-  loadMessagesRef.current    = loadMessages
+  loadListingsRef.current  = loadListings
 
-  // ── Init ──────────────────────────────────────────────────────────
+  // Init
   useEffect(() => {
     if (token) {
       const savedMode = localStorage.getItem('mode') || 'buyer'
@@ -66,42 +58,39 @@ function App() {
     }
   }, [token])
 
-  // Buyer: refresh listings + unread every 5 s
-  useEffect(() => {
-    if (!token || mode !== 'buyer') return
-    loadBuyerUnreadCounts(token)
-    const id = setInterval(() => {
-      loadListingsRef.current?.(false)
-      loadBuyerUnreadRef.current?.(token)
-    }, 5000)
-    return () => clearInterval(id)
-  }, [token, mode])
-
-  // Seller: refresh unread counts every 3 s while on listings view
+  // Seller: refresh unread counts every 4s on listings view
   useEffect(() => {
     if (!token || mode !== 'seller' || view !== 'listings') return
-    const id = setInterval(() => {
-      if (allListingsRef.current.length) loadSellerUnreadCounts(allListingsRef.current)
-    }, 3000)
+    const id = setInterval(() => loadSellerUnreadCounts(), 4000)
     return () => clearInterval(id)
   }, [token, mode, view])
 
-  // Chat: poll messages every 3 s
+  // Seller: refresh buyer list every 4s while on negotiations view
+  const selectedListingRef = useRef(null)
+  selectedListingRef.current = selectedListing
   useEffect(() => {
-    if (view !== 'chat' || !selectedListing) return
-    const buyer = mode === 'seller' ? chatBuyer : null
-    const id = setInterval(() => loadMessagesRef.current?.(selectedListing, buyer), 3000)
+    if (!token || mode !== 'seller' || view !== 'negotiations') return
+    const id = setInterval(() => {
+      if (selectedListingRef.current?.id) loadListingConversations(selectedListingRef.current.id)
+    }, 4000)
     return () => clearInterval(id)
-  }, [view, selectedListing?.id, chatBuyer?.buyer_id, mode])
+  }, [token, mode, view])
 
-  // Geocode listings when the list changes
+  // Buyer: refresh listings every 5s + refresh pending count every 4s
+  useEffect(() => {
+    if (!token || mode !== 'buyer') return
+    const listingId = setInterval(() => loadListingsRef.current?.(false), 5000)
+    const countId   = setInterval(() => loadBuyerPendingCounts(), 4000)
+    return () => { clearInterval(listingId); clearInterval(countId) }
+  }, [token, mode])
+
+  // Geocode listings
   useEffect(() => {
     allListingsRef.current.forEach(l => {
       if (l.latitude && l.longitude && !l.address) fetchLocationName(l.latitude, l.longitude)
     })
   }, [listings])
 
-  // ── Handlers ──────────────────────────────────────────────────────
   const toggleMode = () => {
     const next = mode === 'buyer' ? 'seller' : 'buyer'
     setMode(next)
@@ -114,79 +103,97 @@ function App() {
 
   const handleDeleteListing = async (listingId) => {
     if (!window.confirm('Delete this listing? This cannot be undone.')) return
-    try {
-      await removeListing(listingId)
-    } catch (err) { setError(err.response?.data?.detail || 'Failed to delete listing') }
+    try { await removeListing(listingId) }
+    catch (err) { setError(err.response?.data?.detail || 'Failed to delete listing') }
   }
 
   const handleStatusChange = async (listingId, newStatus) => {
-    try {
-      await changeListingStatus(listingId, newStatus)
-      if (newStatus === 'sold') await notifyBuyersOfSale(listingId)
-    } catch (err) { setError(err.response?.data?.detail || 'Failed to update status') }
+    try { await changeListingStatus(listingId, newStatus) }
+    catch (err) { setError(err.response?.data?.detail || 'Failed to update status') }
   }
 
-  const openChat = (listing) => {
+  // Buyer: open a negotiation for a listing
+  const openNegotiate = (listing) => {
+    setPrevView('listings')
     setSelectedListing(listing)
-    resetChat()
-    loadMessages(listing)
-    setChatListUnreadCounts(prev => ({ ...prev, [listing.id]: 0 }))
-    setView('chat')
+    resetConversation()
+    loadMyListingConversation(listing.id)
+    setView('conversation')
   }
 
-  const openConversations = (listing) => {
-    setSelectedListing(listing)
-    setConversations([])
-    loadConversations(listing)
-    setView('conversations')
-  }
-
-  const openSellerChat = (buyer) => {
-    setChatBuyer(buyer)
-    resetChat()
-    loadMessages(selectedListing, buyer)
-    setConversations(prev => prev.map(c => c.buyer_id === buyer.buyer_id ? { ...c, unread_count: 0 } : c))
-    setListingUnreadCounts(prev => ({
-      ...prev,
-      [selectedListing.id]: Math.max(0, (prev[selectedListing.id] || 0) - (buyer.unread_count || 0)),
-    }))
-    setView('chat')
-  }
-
-  const handleChatSend = async (content) => {
+  const handleStartWithPrice = async (price) => {
     try {
-      await send(selectedListing, mode, content)
-    } catch {
-      setError('Failed to send message')
-      throw new Error('send failed')
+      await startWithPrice(selectedListing.id, price)
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to start negotiation')
     }
   }
 
-  const handleChatBack = () => {
-    if (mode === 'seller') { setChatBuyer(null); setView('conversations') }
-    else { setView('listings'); setSelectedListing(null) }
+  // Seller: view all negotiations for a listing
+  const openNegotiationsList = (listing) => {
+    setSelectedListing(listing)
+    loadListingConversations(listing.id)
+    setView('negotiations')
   }
 
-  const sendPriceSuggestion = async (listing) => {
-    const price = suggestPrice[listing.id]
-    if (!price) return
-    try {
-      await messagesApi.sendMessage(listing.id, listing.seller_id, `💰 Price suggestion: $${price}`)
-      setSuggestPrice(prev => { const n = { ...prev }; delete n[listing.id]; return n })
-      setSuccess('Price suggestion sent!')
-      setTimeout(() => setSuccess(''), 2000)
-    } catch (err) { setError(err.response?.data?.detail || 'Failed to send price suggestion') }
+  const openSellerConversation = (conv) => {
+    setPrevView('negotiations')
+    loadConversation(conv.id)
+    setView('conversation')
   }
 
-  // ── Derived ───────────────────────────────────────────────────────
+  const openNegotiations = () => {
+    loadMyConversations()
+    setView('history')
+  }
+
+  // Re-open a conversation from history
+  const openConversationFromHistory = (conv) => {
+    setPrevView('history')
+    loadConversation(conv.id)
+    setSelectedListing({ id: conv.listing_id, title: conv.listing_title })
+    setView('conversation')
+  }
+
+  // Mark Sold flow
+  const markSoldToBuyer = {
+    fetchBuyers: async (listingId) => {
+      try {
+        const res = await convApi.getContactsRevealed(listingId)
+        return res.data
+      } catch (err) {
+        setError(err.response?.data?.detail || 'Failed to load buyers')
+        return []
+      }
+    },
+    confirm: async (listingId, conversationId) => {
+      try {
+        await convApi.markSoldToBuyer(listingId, conversationId)
+        setSuccess('Listing marked as sold!')
+        loadListings(true)
+        setTimeout(() => setSuccess(''), 2500)
+      } catch (err) {
+        setError(err.response?.data?.detail || 'Failed to mark sold')
+      }
+    },
+  }
+
+  const buyerPendingTotal  = Object.values(buyerPendingCounts).reduce((a, b) => a + b, 0)
+  const sellerPendingTotal = Object.values(listingUnreadCounts).reduce((a, b) => a + b, 0)
+
   const displayListings = mode === 'seller'
     ? listings.filter(l => sellerStatusFilter ? l.status === sellerStatusFilter : true)
-    : listings.filter(l => l.status === 'available' || l.status === 'sold')
+    : listings.filter(l => l.status === 'available' && l.seller_id !== user?.id)
 
-  // ── Render ────────────────────────────────────────────────────────
   return (
     <div className={`app mode-${mode}`}>
-      <Header toggleMode={toggleMode} logout={logout} />
+      <Header
+        toggleMode={toggleMode}
+        logout={logout}
+        onNegotiations={openNegotiations}
+        buyerPendingTotal={buyerPendingTotal}
+        sellerPendingTotal={sellerPendingTotal}
+      />
       <main className="main-content">
 
         {view === 'listings' && token && (
@@ -197,62 +204,76 @@ function App() {
             setSellerStatusFilter={setSellerStatusFilter}
             onFilter={handleFilter}
             listingUnreadCounts={listingUnreadCounts}
-            chatListUnreadCounts={chatListUnreadCounts}
+            buyerPendingCounts={buyerPendingCounts}
             getLocationDisplay={getLocationDisplay}
-            suggestPrice={suggestPrice}
-            setSuggestPrice={setSuggestPrice}
-            onSendPriceSuggestion={sendPriceSuggestion}
-            onChat={openChat}
-            onConversations={openConversations}
-            onEdit={(listing) => setSelectedListing(listing) || setView('edit')}
+            onNegotiate={openNegotiate}
+            onConversations={openNegotiationsList}
+            onEdit={(listing) => { setSelectedListing(listing); setView('edit') }}
             onDelete={handleDeleteListing}
             onStatusChange={handleStatusChange}
+            onMarkSoldToBuyer={markSoldToBuyer}
           />
         )}
 
         {view !== 'listings' && (
           <div className="view-scroll">
-            {error   && <div className="error-message"   style={{ marginBottom: '14px' }}>{error}</div>}
-            {success && <div className="success-message" style={{ marginBottom: '14px' }}>{success}</div>}
-
             {view === 'login'    && <LoginPage />}
             {view === 'register' && <RegisterPage />}
 
             {view === 'create' && token && (
-              <CreateListingForm onCreated={() => loadListings(true)} />
+              <ListingForm onDone={() => loadListings(true)} />
             )}
 
             {view === 'edit' && selectedListing && (
-              <EditListingForm
+              <ListingForm
                 listing={selectedListing}
-                onSaved={() => { loadListings(true); setTimeout(() => { setView('listings'); setSelectedListing(null) }, 1500) }}
+                onDone={() => { loadListings(true); setTimeout(() => { setView('listings'); setSelectedListing(null) }, 1500) }}
                 onCancel={() => { setView('listings'); setSelectedListing(null) }}
               />
             )}
 
-            {view === 'conversations' && selectedListing && (
-              <ConversationsView
+            {view === 'conversation' && (
+              <ConversationView
+                conversation={conversation}
                 listing={selectedListing}
-                conversations={conversations}
-                onSelectBuyer={openSellerChat}
+                contact={contact}
+                onStartWithPrice={handleStartWithPrice}
+                onAction={doAction}
+                onRevealContact={revealContact}
+                onMarkSeen={markSeen}
+                onBack={() => {
+                  if (prevView === 'history') {
+                    loadMyConversations()
+                    setView('history')
+                    resetConversation()
+                  } else if (prevView === 'negotiations') {
+                    setView('negotiations')
+                  } else {
+                    loadBuyerPendingCounts()
+                    setView('listings')
+                    setSelectedListing(null)
+                    resetConversation()
+                  }
+                }}
+              />
+            )}
+
+            {view === 'negotiations' && selectedListing && (
+              <NegotiationsListView
+                listing={selectedListing}
+                conversations={listingConversations}
+                onSelect={openSellerConversation}
                 onBack={() => { setView('listings'); setSelectedListing(null) }}
               />
             )}
 
-            {view === 'chat' && selectedListing && (
-              <ChatView
-                listing={selectedListing}
-                chatBuyer={chatBuyer}
-                messages={messages}
-                messageInput={messageInput}
-                setMessageInput={setMessageInput}
-                chatMessagesRef={chatMessagesRef}
-                isAtBottom={isAtBottom}
-                hasNewMessages={hasNewMessages}
-                scrollToBottom={scrollToBottom}
-                handleChatScroll={handleChatScroll}
-                onSend={handleChatSend}
-                onBack={handleChatBack}
+            {view === 'history' && (
+              <HistoryView
+                conversations={myConversations}
+                tab={historyTab}
+                setTab={setHistoryTab}
+                onBack={() => setView('listings')}
+                onOpen={openConversationFromHistory}
               />
             )}
           </div>

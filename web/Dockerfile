@@ -8,8 +8,9 @@ RUN npm ci
 
 COPY . .
 
-# In production the frontend talks to /api (proxied by nginx)
-ENV VITE_API_URL=/api
+# VITE_API_URL: set to /api for local (nginx proxy), or the full backend URL for Railway/PaaS
+ARG VITE_API_URL=/api
+ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm run build
 

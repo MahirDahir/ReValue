@@ -1,18 +1,13 @@
-"""
-Business logic for listings.
-Routes call these functions; no HTTP concerns here.
-"""
-
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
-import os
 import uuid as _uuid
 
 from models.postgres.listing import Listing, ListingStatus
 from models.postgres.user import User
-from services.image_service import save_upload_file, get_image_url
+from models.postgres.conversation import Conversation, ConversationStatus
+from services.image_service import save_upload_file, get_image_url, safe_delete_upload
 from schemas.listing import ListingUpdate
 
 
@@ -43,6 +38,7 @@ def _listing_to_dict(listing: Listing, seller: User) -> dict:
         "images": listing.images,
         "estimated_price": listing.estimated_price,
         "seller_rating": seller.seller_rating,
+        "pickup_slots": listing.pickup_slots or [],
     }
 
 
@@ -118,6 +114,7 @@ def create_listing(
     address: Optional[str],
     estimated_price: Optional[float],
     image_files,
+    pickup_slots: Optional[list] = None,
 ) -> dict:
     if waste_category.lower() not in VALID_WASTE_CATEGORIES:
         raise HTTPException(
@@ -131,9 +128,11 @@ def create_listing(
         )
 
     image_urls = []
+    saved_paths = []
     for img in image_files:
         if img.filename:
             filepath = save_upload_file(img)
+            saved_paths.append(filepath)
             image_urls.append(get_image_url(filepath))
 
     new_listing = Listing(
@@ -148,11 +147,18 @@ def create_listing(
         address=address,
         estimated_price=estimated_price,
         images=image_urls,
+        pickup_slots=pickup_slots or [],
     )
 
-    db.add(new_listing)
-    db.commit()
-    db.refresh(new_listing)
+    try:
+        db.add(new_listing)
+        db.commit()
+        db.refresh(new_listing)
+    except Exception:
+        db.rollback()
+        for path in saved_paths:
+            safe_delete_upload(path)
+        raise
 
     return _listing_to_dict(new_listing, current_user)
 
@@ -219,10 +225,23 @@ def delete_listing(db: Session, listing_id: UUID, current_user: User) -> dict:
             detail="Only the seller can delete this listing",
         )
 
+    active_statuses = [
+        ConversationStatus.PRICE_PENDING, ConversationStatus.PRICE_SUGGESTED,
+        ConversationStatus.PRICE_AGREED, ConversationStatus.PICKUP_SUGGESTED,
+        ConversationStatus.PICKUP_AGREED,
+    ]
+    active_count = db.query(Conversation).filter(
+        Conversation.listing_id == listing_id,
+        Conversation.status.in_(active_statuses),
+    ).count()
+    if active_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete: {active_count} active negotiation(s) in progress. Cancel them first or mark the listing as sold.",
+        )
+
     for img_url in listing.images:
-        filepath = img_url.replace("/uploads/", "uploads/")
-        if os.path.exists(filepath):
-            os.remove(filepath)
+        safe_delete_upload(img_url)
 
     db.delete(listing)
     db.commit()

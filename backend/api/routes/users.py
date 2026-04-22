@@ -12,12 +12,20 @@ router = APIRouter(prefix="/users", tags=["Users"])
 
 
 @router.get("/{user_id}", response_model=dict)
-def get_user_profile(user_id: UUID, db: Session = Depends(get_db)):
+def get_user_profile(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     return user_service.get_user_profile(db, user_id)
 
 
 @router.get("/{user_id}/stats", response_model=UserStats)
-def get_user_stats(user_id: UUID, db: Session = Depends(get_db)):
+def get_user_stats(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     return user_service.get_user_stats(db, user_id)
 
 

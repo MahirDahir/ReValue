@@ -1,7 +1,8 @@
 import { useAppContext } from '../AppContext'
 
-export default function Header({ toggleMode, logout }) {
+export default function Header({ toggleMode, logout, onNegotiations, buyerPendingTotal, sellerPendingTotal }) {
   const { token, user, mode, setView } = useAppContext()
+  const pendingTotal = mode === 'buyer' ? buyerPendingTotal : sellerPendingTotal
 
   return (
     <header className="header">
@@ -16,6 +17,10 @@ export default function Header({ toggleMode, logout }) {
               {mode === 'buyer' ? '🛒 Buyer' : '🏪 Seller'}
             </button>
             <button className="btn btn-ghost" onClick={() => setView('listings')}>Browse</button>
+            <button className="btn btn-ghost btn-with-badge" onClick={onNegotiations}>
+              🤝 Negotiations
+              {pendingTotal > 0 && <span className="badge">{pendingTotal}</span>}
+            </button>
             <button className="btn btn-ghost" onClick={logout}>Logout</button>
           </>
         ) : (

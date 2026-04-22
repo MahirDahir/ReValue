@@ -1,194 +1,163 @@
 # ReValue
 
-A cross-platform marketplace for turning waste into money — sellers post any waste material (plastic, glass, metal, electronics, and more); buyers collect and pay.
+A marketplace for turning waste into money — sellers post waste material (plastic, glass, metal, electronics, and more); buyers collect and pay. Structured negotiation flow, no free-text chat.
 
 ## Features
 
-- 🔐 **Phone-based Auth** — register and login with phone number (unique key, no email)
-- 🛒 **Buyer / Seller Toggle** — switch modes with one click; green theme for buyers, blue for sellers
-- 📋 **Buyer View** — browse all available listings from all sellers
-- 🏪 **Seller View** — see all own listings (including sold), filter by status (All / Available / Sold / Pending), mark as sold, reactivate sold items
-- 💬 **In-App Chat** — buyers chat with sellers per listing; sellers see all buyer threads and can reply
-- 📸 **Image Upload** — list bottles with photos
-- ⭐ **Rating System** — rate buyers and sellers after transactions
-- 📍 **Location** — address + coordinates per listing *(map picker planned — see Roadmap)*
-- 🧴🍾⚙️📱📦 **Waste Categories** — Plastic, Glass, Metal, Electronics, Other
+- **Phone-based Auth** — register and login with phone number + password; inline error on failure
+- **Buyer / Seller Toggle** — switch modes with one click; green theme for buyers, blue for sellers
+- **Listings** — create with photo upload, Leaflet map picker, waste category, quantity, optional price, pickup availability slots
+- **Location** — reverse-geocoded address display + OpenStreetMap embed on each card (no API key needed)
+- **Structured Negotiation** — price offer → pickup time → contact reveal (no free-text chat)
+- **Full Event Timeline** — every negotiation step logged with actor name and timestamp; full history visible in the conversation view
+- **Live Notification Badges** — header "🤝 Negotiations" button shows pending-action count; per-listing badges on the grid; badges clear when you open the conversation
+- **History View** — three tabs: Active / Done / Cancelled; each row re-opens the conversation
+- **Mark Sold with Buyer Selector** — seller picks the actual buyer from a list of buyers who received contact details; others are auto-notified and cancelled
+- **Waste Categories** — Plastic, Glass, Metal, Electronics, Other
+- **Docker Compose** — one command to run everything locally
+- **Render-ready** — `render.yaml` for one-click free cloud deployment
+- **Cloudinary images** — uploads stored on Cloudinary CDN in production, local disk in dev
+
+## Negotiation Flow
+
+```
+Buyer opens negotiation → enters price offer
+    ↓
+[price_pending] ←─────────────────────────────────┐
+    ↓ buyer or seller suggests price               │
+[price_suggested]                                  │
+    ↓ other party accepts / declines ──────────────┘
+[price_agreed]
+    ↓ either party suggests pickup time
+[pickup_suggested] ←──────────────────────────────┐
+    ↓ other party accepts / counter-suggests ──────┘
+[pickup_agreed]
+    ↓ seller shares phone
+[contact_revealed]  →  buyer views seller's phone
+```
+
+Every transition is logged in the conversation timeline. Seller can cancel (block) at any non-terminal state.
 
 ## Tech Stack
 
 ### Backend
 - **Framework**: FastAPI (Python 3.11)
-- **Databases**:
-  - PostgreSQL — users, listings, transactions, ratings
-  - MongoDB — chat messages
-- **Auth**: JWT (python-jose) + bcrypt password hashing
-- **Payments**: Stripe *(stubbed for POC)*
+- **Database**: PostgreSQL (SQLAlchemy ORM + Alembic migrations)
+- **Auth**: JWT (HS256, 7-day tokens) + bcrypt
+- **Images**: Cloudinary CDN (prod) / local disk (dev)
+- **Payments**: Stripe *(stubbed)*
 
 ### Web Frontend
-- **Framework**: React 18 + Vite
-- **HTTP Client**: Axios
+- **Framework**: React 18 + Vite (no routing library — view state drives rendering)
+- **Maps**: react-leaflet v4 (listing form), OpenStreetMap iframe embed (listing cards)
+- **Geocoding**: Nominatim / OpenStreetMap (no API key)
+- **HTTP Client**: Axios with JWT interceptor
 - **Testing**: Vitest 2 + React Testing Library + MSW
 
 ### Infrastructure
-- PostgreSQL and MongoDB run as Docker containers
+- Docker Compose (local)
+- Render (free cloud) — see `render.yaml`
 
 ## Project Structure
 
 ```
-RecycleBottles/
+ReValue/
 ├── backend/
-│   ├── api/
-│   │   ├── routes/        # auth, users, listings, messages, payments, ratings
-│   │   └── middleware/    # JWT auth middleware
-│   ├── db/                # PostgreSQL + MongoDB connections
-│   ├── models/
-│   │   ├── postgres/      # SQLAlchemy ORM models
-│   │   └── mongodb/       # MongoDB message model
-│   ├── schemas/           # Pydantic v2 request/response schemas
-│   ├── services/          # Business logic (listing, message, user, rating, payment)
-│   ├── tests/
-│   │   └── integration/   # pytest integration tests (33 tests)
-│   ├── config.py
-│   ├── main.py
-│   └── requirements.txt
+│   ├── api/routes/           # auth, users, listings, conversations, ratings, payments
+│   ├── alembic/versions/     # 0001 → 0002 → 0003 → 0004
+│   ├── db/                   # PostgreSQL connection + Base
+│   ├── models/postgres/      # User, Listing, Conversation, ConversationEvent
+│   ├── schemas/              # Pydantic v2 schemas
+│   ├── services/             # Business logic (conversation state machine, image upload)
+│   ├── tests/integration/    # pytest integration tests
+│   ├── entrypoint.sh         # DB create + alembic upgrade head + uvicorn
+│   └── Dockerfile
 └── web/
     ├── src/
-    │   ├── api/            # Axios client layer (auth, listings, messages, users)
-    │   ├── components/     # Header, ListingCard, LoginPage, ChatView, etc.
-    │   ├── constants/      # BOTTLE_ICONS
-    │   ├── hooks/          # useAuth, useListings, useMessages, useGeocoding
-    │   ├── test/           # MSW server, handlers, renderWithContext helper
-    │   ├── App.jsx         # Slim orchestrator (~200 lines)
-    │   ├── AppContext.jsx  # Global state (token, user, mode, view, error)
-    │   └── index.css       # Theming + layout
-    └── package.json
+    │   ├── api/              # conversations.js, listings.js, auth.js, users.js
+    │   ├── components/       # Header, ListingCard, ListingForm, ConversationView,
+    │   │                     # NegotiationsListView, HistoryView, MapPicker, ...
+    │   ├── constants/        # WASTE_ICONS, WASTE_CATEGORIES, WASTE_UNITS
+    │   ├── hooks/            # useAuth, useListings, useConversation, useGeocoding
+    │   ├── App.jsx           # Slim orchestrator
+    │   └── AppContext.jsx    # Global state
+    ├── nginx.conf
+    └── Dockerfile
 ```
 
-## Running Tests
-
-### Backend (integration tests)
-
-With the databases running (via Docker Compose or the bat file):
-
-```cmd
-cd backend
-venv\Scripts\activate
-pytest -v
-```
-
-Tests run against a separate `recycle_bottles_test` database — production data is never touched.
-Each test starts with a clean slate (all tables truncated before every test).
-
-**33 tests** cover: auth, listings CRUD, permission enforcement, messaging, and user profiles.
-
-### Frontend (unit/component tests)
-
-No database or server needed — MSW intercepts all HTTP at the module level.
-
-```cmd
-cd web
-npm test
-```
-
-**14 tests** cover: axios auth interceptor, useAuth hook (login/logout/register), LoginPage form behaviour, and ListingCard rendering.
-
----
-
-## Getting Started
-
-### Quick Start — Docker Compose
+## Running Locally
 
 ```bash
 # 1. Copy and fill in secrets
 cp .env.example .env
+# Set SECRET_KEY and POSTGRES_PASSWORD at minimum
 
-# 2. Start everything (databases, backend, frontend)
+# 2. Start everything (runs DB migrations automatically)
 docker-compose up --build -d
 
 # 3. Open the app
-#    Web:      http://localhost:3000
-#    API docs: http://localhost:8000/docs
+#    Web:  http://localhost:3000
+#    API:  http://localhost:8000/docs  (only in DEBUG=true mode)
 ```
-
-On first run the backend entrypoint automatically creates the `revalue` database and applies all Alembic migrations — no manual steps needed.
 
 To stop: `docker-compose down`  
-To wipe all data too: `docker-compose down -v`
+To wipe all data: `docker-compose down -v`
 
-On Windows: double-click **`start-poc.bat`** / **`stop-poc.bat`**
-
----
-
-### Manual Start (development only)
-
-#### 1. Start Databases (Docker)
+## Running Tests
 
 ```bash
-docker-compose up -d postgres mongo
-```
-
-#### 2. Start Backend
-
-```bash
+# Backend integration tests
 cd backend
-venv\Scripts\activate          # Windows
-# source venv/bin/activate     # Mac/Linux
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
+source venv/Scripts/activate   # Windows
+pytest -v
 
-API available at: **http://localhost:8000**  
-Interactive docs: **http://localhost:8000/docs**
-
-#### 3. Start Frontend
-
-```bash
+# Frontend unit/component tests
 cd web
-npm run dev
+npm test
 ```
-
-Web app at: **http://localhost:3000**
 
 ## API Endpoints
 
 ### Authentication
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | `/api/auth/register` | Register — body: `{ phone, password, name }` |
-| POST | `/api/auth/login` | Login — form: `username` (phone) + `password` |
-| GET | `/api/auth/me` | Get current user (Bearer token) |
-
-### Users
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/users/{id}` | Get user profile |
-| GET | `/api/users/{id}/stats` | Get user statistics |
-| PUT | `/api/users/me` | Update current user |
+| POST | `/api/auth/register` | `{ phone, password, name }` |
+| POST | `/api/auth/login` | form: `username` (phone) + `password` |
+| GET  | `/api/auth/me` | Current user (Bearer token) |
 
 ### Listings
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/api/listings/` | Browse all available listings; optional `?waste_category=` filter |
-| GET | `/api/listings/mine` | Get all own listings regardless of status (seller, requires Bearer token) |
-| POST | `/api/listings/` | Create listing (multipart form) |
-| GET | `/api/listings/{id}` | Get listing details |
-| PUT | `/api/listings/{id}` | Update listing |
-| PUT | `/api/listings/{id}/status` | Update status (available / pending / sold / cancelled) |
-| DELETE | `/api/listings/{id}` | Delete listing |
+| GET    | `/api/listings/` | Browse available + sold listings |
+| GET    | `/api/listings/mine` | Seller's own listings |
+| POST   | `/api/listings/` | Create (multipart form) |
+| PUT    | `/api/listings/{id}` | Update |
+| PUT    | `/api/listings/{id}/status` | Change status |
+| DELETE | `/api/listings/{id}` | Delete |
 
-### Messages
+### Conversations (Negotiations)
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | `/api/messages/` | Send message — body: `{ listing_id, receiver_id, content }` |
-| GET | `/api/messages/listing/{id}` | Buyer: get own chat with seller. Seller: requires `?buyer_id=` to view a buyer's thread |
-| GET | `/api/messages/listing/{id}/conversations` | Seller only — list all buyers who messaged about a listing |
-| GET | `/api/messages/{chat_id}` | Get messages by chat ID |
-| WS | `/api/messages/ws/{user_id}` | WebSocket for real-time chat |
+| POST | `/api/conversations/start` | Start or resume negotiation with a price offer |
+| POST | `/api/conversations/{id}/action` | Drive state machine: `{ action, value }` |
+| GET  | `/api/conversations/{id}` | Get conversation state + full event timeline |
+| POST | `/api/conversations/{id}/seen` | Mark conversation as seen (clears badge) |
+| GET  | `/api/conversations/mine` | All my conversations (buyer + seller) |
+| GET  | `/api/conversations/my-for-listing/{id}` | Buyer's own conversation for a listing |
+| GET  | `/api/conversations/listing/{id}` | Seller: all buyer negotiations for a listing |
+| GET  | `/api/conversations/contacts-revealed/{id}` | Seller: buyers who reached contact_revealed |
+| GET  | `/api/conversations/pending-counts` | Seller: action-needed counts per listing |
+| GET  | `/api/conversations/buyer-pending-counts` | Buyer: pending-action counts |
+| GET  | `/api/conversations/{id}/contact` | Buyer: view seller contact (after reveal) |
+| POST | `/api/conversations/listing/{id}/mark-sold` | Seller: confirm actual buyer, cancel others |
+
+**Actions**: `suggest_price`, `accept_price`, `decline_price`, `suggest_pickup`, `accept_pickup`, `reveal_contact`, `cancel`
 
 ### Ratings
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | `/api/ratings/` | Create rating after transaction |
-| GET | `/api/ratings/user/{id}` | Get ratings for a user |
+| POST | `/api/ratings/` | Create rating |
+| GET  | `/api/ratings/user/{id}` | Get user ratings |
 
 ### Payments *(stubbed)*
 | Method | Endpoint | Description |
@@ -198,65 +167,50 @@ Web app at: **http://localhost:3000**
 
 ## Data Models
 
-### User (PostgreSQL)
+### Conversation
 | Field | Type | Notes |
 |---|---|---|
 | id | UUID | Primary key |
-| phone | VARCHAR(20) | **Unique, NOT NULL** — used as login key |
-| password_hash | VARCHAR | bcrypt |
-| name | VARCHAR | |
-| buyer_rating / seller_rating | FLOAT | Averaged automatically |
-| total_transactions | INT | |
+| listing_id / buyer_id / seller_id | UUID | Foreign keys |
+| status | VARCHAR | State machine status (see flow above) |
+| suggested_price / agreed_price | FLOAT | Negotiated price |
+| price_suggested_by | UUID | Blocks Accept on the suggester |
+| suggested_pickup / agreed_pickup | VARCHAR | ISO datetime string |
+| pickup_suggested_by | UUID | Whose turn to respond |
+| seen_by_buyer / seen_by_seller | BOOLEAN | False = unread update |
 
-### Listing (PostgreSQL)
+### ConversationEvent
 | Field | Type | Notes |
 |---|---|---|
-| id | UUID | |
-| seller_id | UUID | FK → users |
-| title, description | TEXT | |
-| waste_category | VARCHAR | plastic / glass / metal / electronics / other |
-| quantity | INT | |
-| unit | VARCHAR | kg / pieces |
-| status | VARCHAR | available / pending / sold / cancelled |
-| latitude, longitude | FLOAT | |
-| images | JSON | Array of URL paths |
-| estimated_price | FLOAT | Optional starting price |
+| conversation_id | UUID | FK → conversations (CASCADE) |
+| actor_name | VARCHAR | Denormalised — no join needed for display |
+| event_type | VARCHAR | negotiation_started, price_suggested, price_accepted, price_declined, pickup_suggested, pickup_accepted, contact_revealed, cancelled |
+| value | VARCHAR | Price amount, ISO datetime, or cancel reason |
+| created_at | TIMESTAMPTZ | Timeline ordering |
 
-### Message (MongoDB)
-| Field | Type | Notes |
-|---|---|---|
-| chat_id | String | `{listing_id}_{sorted_user_ids}` — normalized, no dashes |
-| sender_id / receiver_id | String | User UUIDs |
-| content | String | |
-| timestamp | DateTime | |
-| read | Boolean | |
+### Listing
+| Field | Notes |
+|---|---|
+| waste_category | plastic, glass, metal, electronics, other |
+| unit | kg, pieces |
+| pickup_slots | JSON: `[{"day": "monday", "start": "09:00", "end": "17:00"}]` |
+| actual_buyer_id | Set when seller confirms buyer via mark-sold flow |
 
-## Known Bugs Fixed
+## Database Migrations
+| ID | Description |
+|---|---|
+| 0001 | users, listings, transactions, ratings |
+| 0002 | conversations table |
+| 0003 | price_suggested_by on conversations, pickup_slots on listings |
+| 0004 | conversation_events, seen_by_buyer/seller, actual_buyer_id |
 
-| ID | Bug | Fix Applied |
-|---|---|---|
-| BUG-01 | Filtering by type twice cleared all listings | Keep `allListings` as source of truth; always filter from original list |
-| BUG-02 | Phone shown as optional in registration | Phone is now mandatory and unique — it is the login key |
-| BUG-03 | Chat messages not showing despite 201/200 | `chat_id` was inconsistent (dashes vs no-dashes in UUIDs); normalized all IDs before generating chat_id |
-| BUG-04 | Seller could not see chats from buyers | Added `/listing/{id}/conversations` endpoint to list buyers; seller can open any buyer thread via `?buyer_id=`; "View Chats" button added to seller listing cards |
-| BUG-05 | Buyer still saw listing as "available" after seller marked it sold | Added 30-second auto-refresh of listings in buyer mode so status changes are reflected without manual reload |
-| BUG-06 | Sold listings disappeared from seller's view after marking sold | `GET /listings/` now accepts `seller_id` param which bypasses the default available-only filter; seller fetches their own listings at all statuses |
-| BUG-07 | New seller listing not visible in buyer browser; sold status not reflected in buyer browser | Buyer auto-refresh reduced to 5 s; stale closure in interval fixed via `loadListingsRef`; `handleCreateListing` now fetches with `seller_id` so seller view stays consistent after create |
-| BUG-08 | All listings disappeared for seller after marking as sold / filtering by Sold | Added `GET /listings/mine` endpoint (JWT-identified, no UUID string comparison). Status changes now use an optimistic local state update — `allListings` is mapped in-place immediately after PUT succeeds, no re-fetch race condition possible |
-| BUG-09 | Sent chat messages not shown immediately | `sendMessage` now appends the POST response body directly to `messages` state instead of doing a second GET. Added 3 s polling while chat is open so incoming messages from the other party appear automatically |
-| BUG-10 | Backend crashed on login with "database recycle_bottles does not exist" | `.env` was not updated when DB was renamed to `revalue` (only `.env.example` was). Fixed `.env`; added `entrypoint.sh` that auto-creates the DB and runs `alembic upgrade head` on every container start — no manual steps required |
+Migrations run automatically on container start via `entrypoint.sh` → `alembic upgrade head`.
 
-## Roadmap
+## Deployment
 
-| ID | Feature | Status |
-|---|---|---|
-| REQ-01 | No role selection at registration — default Buyer | ✅ Done |
-| REQ-02 | Buyer/Seller toggle button + color theme | ✅ Done |
-| REQ-03 | Seller sees own listings; Buyer sees all | ✅ Done |
-| REQ-04 | Login by phone number (replaces email) | ✅ Done |
-| REQ-05 | Login page as default landing page | ✅ Done |
-| REQ-07 | Bottle type icons (🧴🍾🥫♻️) | ✅ Done |
-| REQ-06 | Location via Google Maps link or Leaflet map | 🔲 Pending |
+See [DEPLOY_RAILWAY.md](DEPLOY_RAILWAY.md) for Render cloud deployment instructions.
+
+Required env vars for production: `SECRET_KEY`, `DATABASE_URL`, `CLOUDINARY_URL`
 
 ## License
 

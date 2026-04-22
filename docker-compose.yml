@@ -4,6 +4,7 @@ services:
 
   postgres:
     image: postgres:15
+    restart: always
     environment:
       POSTGRES_DB: revalue
       POSTGRES_USER: postgres
@@ -18,21 +19,10 @@ services:
       timeout: 5s
       retries: 5
 
-  mongo:
-    image: mongo:7
-    volumes:
-      - mongo_data:/data/db
-    ports:
-      - "27017:27017"
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   backend:
     build: ./backend
     image: revalue-backend:latest
+    restart: always
     ports:
       - "8000:8000"
     environment:
@@ -44,8 +34,6 @@ services:
       POSTGRES_DB: revalue
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      MONGODB_URI: mongodb://mongo:27017
-      MONGODB_DB: revalue
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
     volumes:
@@ -53,12 +41,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      mongo:
-        condition: service_healthy
 
   web:
     build: ./web
     image: revalue-web:latest
+    restart: always
     ports:
       - "3000:80"
     depends_on:
@@ -66,5 +53,4 @@ services:
 
 volumes:
   postgres_data:
-  mongo_data:
   uploads_data:

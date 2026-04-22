@@ -1,56 +1,80 @@
 import os
 import uuid
-from typing import List, Optional
+import pathlib
 from fastapi import UploadFile, HTTPException
 from PIL import Image
 from config import get_settings
 
 settings = get_settings()
+UPLOAD_DIR = pathlib.Path(settings.UPLOAD_DIR).resolve()
+
+# Cloudinary is used when CLOUDINARY_URL is set (production).
+# Falls back to local disk (dev / Docker Compose).
+_cloudinary_enabled = bool(settings.CLOUDINARY_URL)
+if _cloudinary_enabled:
+    import cloudinary
+    import cloudinary.uploader
+    cloudinary.config(cloudinary_url=settings.CLOUDINARY_URL)
 
 
-def ensure_upload_dir():
-    """Ensure upload directory exists"""
-    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-
-
-def validate_file_extension(filename: str) -> bool:
-    """Check if file extension is allowed"""
-    ext = filename.rsplit(".", 1)[1].lower() if "." in filename else ""
-    return ext in settings.ALLOWED_EXTENSIONS
+def _validate(file: UploadFile) -> str:
+    if not file.filename or "." not in file.filename:
+        raise HTTPException(status_code=400, detail="File has no extension")
+    ext = file.filename.rsplit(".", 1)[1].lower()
+    if ext not in settings.ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"File type not allowed. Allowed: {settings.ALLOWED_EXTENSIONS}")
+    return ext
 
 
 def save_upload_file(file: UploadFile) -> str:
-    """Save uploaded file and return filepath"""
-    ensure_upload_dir()
+    ext = _validate(file)
 
-    # Validate extension
-    if not validate_file_extension(file.filename):
-        raise HTTPException(
-            status_code=400,
-            detail=f"File type not allowed. Allowed: {settings.ALLOWED_EXTENSIONS}",
-        )
+    raw = file.file.read()
+    if len(raw) > settings.MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File too large (max 5 MB)")
 
-    # Generate unique filename
-    ext = file.filename.rsplit(".", 1)[1].lower()
-    unique_filename = f"{uuid.uuid4()}.{ext}"
-    filepath = os.path.join(settings.UPLOAD_DIR, unique_filename)
-
-    # Save file using the underlying sync file object
-    with open(filepath, "wb") as buffer:
-        buffer.write(file.file.read())
-
-    # Validate it's an image
+    # Validate it's a real image
+    import io
     try:
-        with Image.open(filepath) as img:
+        with Image.open(io.BytesIO(raw)) as img:
             img.verify()
     except Exception:
-        os.remove(filepath)
         raise HTTPException(status_code=400, detail="Invalid image file")
 
-    return filepath
+    if _cloudinary_enabled:
+        result = cloudinary.uploader.upload(
+            io.BytesIO(raw),
+            folder="revalue",
+            resource_type="image",
+            format=ext,
+        )
+        return result["secure_url"]
+
+    # Local disk fallback
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid.uuid4()}.{ext}"
+    filepath = UPLOAD_DIR / filename
+    filepath.write_bytes(raw)
+    return str(filepath)
+
+
+def safe_delete_upload(img_url: str):
+    if _cloudinary_enabled:
+        # Extract public_id from Cloudinary URL: .../revalue/<public_id>.<ext>
+        try:
+            name = img_url.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+            cloudinary.uploader.destroy(f"revalue/{name}")
+        except Exception:
+            pass
+        return
+    filename = os.path.basename(img_url)
+    filepath = (UPLOAD_DIR / filename).resolve()
+    if str(filepath).startswith(str(UPLOAD_DIR)):
+        filepath.unlink(missing_ok=True)
 
 
 def get_image_url(filepath: str) -> str:
-    """Get URL for an image file"""
-    filename = os.path.basename(filepath)
-    return f"/uploads/{filename}"
+    # Cloudinary: filepath is already the full URL
+    if filepath.startswith("http"):
+        return filepath
+    return f"/uploads/{os.path.basename(filepath)}"

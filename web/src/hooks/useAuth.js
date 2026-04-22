@@ -9,19 +9,21 @@ export function useAuth() {
       const res = await authApi.getMe()
       setUser(res.data)
       return res.data
-    } catch {
-      logout()
+    } catch (err) {
+      // Only force logout on 401 (invalid/expired token), not on transient errors
+      if (err.response?.status === 401) logout()
       return null
     }
   }
 
   const login = async (phone, password) => {
-    setError('')
     const res = await authApi.login(phone, password)
-    setToken(res.data.access_token)
-    setUser(res.data.user)
-    setMode(localStorage.getItem('mode') || 'buyer')
-    localStorage.setItem('token', res.data.access_token)
+    const { access_token, user } = res.data
+    const mode = localStorage.getItem('mode') || 'buyer'
+    localStorage.setItem('token', access_token)
+    setToken(access_token)
+    setUser(user)
+    setMode(mode)
     setView('listings')
   }
 
