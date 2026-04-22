@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from services.auth_service import decode_access_token
-from db.postgres_conn import get_db
+from db.session import get_db
 from models.postgres.user import User
 
 security = HTTPBearer()

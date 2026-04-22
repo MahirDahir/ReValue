@@ -4,9 +4,9 @@ from typing import List, Optional
 from uuid import UUID
 import json
 
-from db.postgres_conn import get_db
+from db.session import get_db
 from models.postgres.user import User
-from api.middleware.auth import get_current_user
+from api.deps import get_current_user
 from schemas.listing import ListingUpdate, ListingResponse
 from services.listing_service import VALID_WASTE_CATEGORIES, VALID_STATUSES
 import services.listing_service as listing_service

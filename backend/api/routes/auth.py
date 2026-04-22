@@ -3,14 +3,14 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
 
-from db.postgres_conn import get_db
+from db.session import get_db
 from models.postgres.user import User
 from services.auth_service import (
     verify_password,
     get_password_hash,
     create_access_token,
 )
-from api.middleware.auth import get_current_user
+from api.deps import get_current_user
 from config import get_settings
 from schemas.auth import UserRegister, TokenResponse, UserResponse
 from limiter import limiter

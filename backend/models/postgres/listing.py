@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
-from db.postgres_conn import Base
+from db.session import Base
 
 
 class ListingStatus:

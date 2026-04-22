@@ -38,6 +38,6 @@ echo   - API Docs: http://localhost:8000/docs
 echo ============================================
 echo.
 echo Use "docker-compose logs -f" to follow logs.
-echo Use "stop-poc.bat" to stop all services.
+echo Use "stop.bat" to stop all services.
 echo.
 pause

@@ -11,7 +11,7 @@ import models.postgres.transaction   # noqa
 import models.postgres.rating        # noqa
 import models.postgres.conversation  # noqa
 
-from db.postgres_conn import Base
+from db.session import Base
 
 config = context.config
 

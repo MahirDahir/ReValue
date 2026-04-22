@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from uuid import UUID
 
-from db.postgres_conn import get_db
+from db.session import get_db
 from models.postgres.user import User
-from api.middleware.auth import get_current_user
+from api.deps import get_current_user
 from schemas.user import UserStats, UserUpdate
 import services.user_service as user_service
 

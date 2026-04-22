@@ -32,15 +32,15 @@ _ensure_test_db_exists()
 test_engine = create_engine(TEST_PG_URL)
 TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
-# Register all models with Base.metadata
-import models.postgres.user         # noqa
-import models.postgres.listing      # noqa
-import models.postgres.transaction  # noqa
-import models.postgres.rating       # noqa
+# Register all models with Base.metadata so create_all works
+import models.postgres.user               # noqa
+import models.postgres.listing            # noqa
+import models.postgres.transaction        # noqa
+import models.postgres.rating             # noqa
 import models.postgres.conversation       # noqa
 import models.postgres.conversation_event # noqa
 
-from db.postgres_conn import Base, get_db
+from db.session import Base, get_db
 
 
 @pytest.fixture(scope="session", autouse=True)
