@@ -51,7 +51,8 @@ function fmtTime(iso) {
 
 function ConvRow({ conv, userId, mode, onOpen }) {
   const ds       = displayStatus(conv, userId)
-  const meta     = STATUS_LABELS[ds] || { label: ds, color: '#888', bg: '#f5f5f5' }
+  const meta     = { ...(STATUS_LABELS[ds] || { label: ds, color: '#888', bg: '#f5f5f5' }) }
+  if (ds === 'sold' && mode === 'buyer') meta.label = '🛒 Purchased'
   const yourTurn = ACTIVE_STATUSES.includes(conv.status) && isYourTurn(conv, userId, mode)
   const unseen   = mode === 'buyer' ? !conv.seen_by_buyer : !conv.seen_by_seller
 
@@ -113,7 +114,7 @@ export default function HistoryView({ conversations, tab, setTab, onBack, onOpen
     { key: 'yourTurn',   label: `Your turn (${yourTurn.length})`,   highlight: yourTurn.length > 0 },
     { key: 'waiting',    label: `Waiting (${waiting.length})` },
     { key: 'negotiated', label: `Negotiated (${negotiated.length})` },
-    { key: 'sold',       label: `Sold (${sold.length})` },
+    { key: 'sold',       label: `${mode === 'buyer' ? 'Purchased' : 'Sold'} (${sold.length})` },
     { key: 'cancelled',  label: `Cancelled (${cancelled.length})` },
   ]
 

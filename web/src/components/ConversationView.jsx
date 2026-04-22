@@ -126,7 +126,7 @@ export default function ConversationView({ conversation, listing, contact, onSta
       <div className="form-container" style={{ maxWidth: '560px' }}>
         <button className="btn btn-ghost" onClick={onBack} style={{ marginBottom: '16px' }}>← Back</button>
         <h2>🤝 {listing?.title}</h2>
-        <p style={{ color: '#888', fontSize: '14px', marginBottom: '20px' }}>Negotiating with seller</p>
+        <p style={{ color: '#888', fontSize: '14px', marginBottom: '20px' }}>Seller: <strong>{listing?.seller_name || 'Loading…'}</strong></p>
         {listing?.estimated_price ? (
           <div style={{ padding: '14px', background: '#f5f5f5', borderRadius: '8px', marginBottom: '20px' }}>
             <p style={{ margin: 0 }}>This listing has a fixed price of <strong>${listing.estimated_price}</strong>.</p>
@@ -167,7 +167,7 @@ export default function ConversationView({ conversation, listing, contact, onSta
       <button className="btn btn-ghost" onClick={onBack} style={{ marginBottom: '16px' }}>← Back</button>
 
       <h2>🤝 {conversation.listing_title}</h2>
-      {isBuyer  && <p style={{ color: '#888', fontSize: '14px', marginBottom: '20px' }}>Negotiating with seller</p>}
+      {isBuyer  && <p style={{ color: '#888', fontSize: '14px', marginBottom: '20px' }}>Seller: <strong>{conversation.seller_name || listing?.seller_name || '…'}</strong></p>}
       {isSeller && <p style={{ color: '#888', fontSize: '14px', marginBottom: '20px' }}>Buyer: <strong>{conversation.buyer_name}</strong></p>}
 
       {/* Progress steps */}

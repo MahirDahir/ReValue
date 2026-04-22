@@ -53,6 +53,7 @@ def _events(db: Session, conv_id: UUID) -> list:
 def _to_dict(conv: Conversation, db: Session, include_events: bool = True) -> dict:
     listing = db.query(Listing).filter(Listing.id == conv.listing_id).first()
     buyer   = db.query(User).filter(User.id == conv.buyer_id).first()
+    seller  = db.query(User).filter(User.id == conv.seller_id).first()
     return {
         "id":                    str(conv.id),
         "listing_id":            str(conv.listing_id),
@@ -71,6 +72,7 @@ def _to_dict(conv: Conversation, db: Session, include_events: bool = True) -> di
         "listing_status":        listing.status if listing else None,
         "actual_buyer_id":       str(listing.actual_buyer_id) if listing and listing.actual_buyer_id else None,
         "buyer_name":            buyer.name if buyer else None,
+        "seller_name":           seller.name if seller else None,
         "events":                _events(db, conv.id) if include_events else [],
         "seen_by_buyer":         conv.seen_by_buyer,
         "seen_by_seller":        conv.seen_by_seller,

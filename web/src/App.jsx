@@ -140,7 +140,7 @@ function App() {
   const openConversationFromHistory = (conv) => {
     setPrevView('history')
     loadConversation(conv.id)
-    setSelectedListing({ id: conv.listing_id, title: conv.listing_title })
+    setSelectedListing({ id: conv.listing_id, title: conv.listing_title, seller_name: conv.seller_name })
     setView('conversation')
   }
 

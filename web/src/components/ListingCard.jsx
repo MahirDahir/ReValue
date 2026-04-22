@@ -64,6 +64,9 @@ export default function ListingCard({
           <span className={`status status-${listing.status}`}>{listing.status}</span>
         </div>
 
+        {mode === 'buyer' && listing.seller_name && (
+          <p style={{ fontSize: '13px', color: '#666', margin: '2px 0 4px' }}>🧑 {listing.seller_name}</p>
+        )}
         <p className="listing-location">📍 {getLocationDisplay(listing)}</p>
 
         {listing.latitude && listing.longitude && (
