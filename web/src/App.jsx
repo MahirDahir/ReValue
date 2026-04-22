@@ -63,6 +63,19 @@ function App() {
   const conversationRef = useRef(null)
   conversationRef.current = conversation
 
+  // Buyer: refresh listings every 30s so new/reactivated items appear
+  const loadListingsRef   = useRef(null)
+  const modeRef           = useRef(null)
+  loadListingsRef.current = loadListings
+  modeRef.current         = mode
+  useEffect(() => {
+    if (!token) return
+    const id = setInterval(() => {
+      if (modeRef.current === 'buyer') loadListingsRef.current(false)
+    }, 30000)
+    return () => clearInterval(id)
+  }, [token])
+
   // SSE: real-time updates replace all polling
   useSSE({
     token,
