@@ -95,10 +95,10 @@ export default function ConversationView({ conversation, listing, contact, onSta
   const isSeller = mode === 'seller'
   const s        = conversation?.status
 
-  // Mark seen when conversation opens — caller (App.jsx) handles this via onMarkSeen
+  // Mark seen only when the conversation is first opened (id changes), not on every SSE update
   useEffect(() => {
     if (conversation?.id) onMarkSeen?.(conversation.id)
-  }, [conversation?.id, conversation?.status])
+  }, [conversation?.id])
 
   const act = (action, value) => {
     setPriceInput(''); setPickupInput('')
