@@ -16,7 +16,10 @@ const NEGOTIATED_STATUSES = ['contact_revealed']
 const SOLD_STATUSES       = ['sold']
 const DEAD_STATUSES       = ['cancelled']
 
+STATUS_LABELS['listing_removed'] = { label: '🗑️ Listing removed', color: '#b71c1c', bg: '#ffebee' }
+
 function displayStatus(conv, userId) {
+  if (conv.listing_removed) return 'listing_removed'
   if (
     conv.status === 'contact_revealed' &&
     conv.listing_status === 'sold' &&
@@ -98,16 +101,19 @@ function ConvRow({ conv, userId, mode, onOpen }) {
 export default function HistoryView({ conversations, tab, setTab, onBack, onOpen }) {
   const { mode, user } = useAppContext()
 
-  const modeConvs  = conversations.filter(c =>
-    mode === 'buyer' ? c.buyer_id === user?.id : c.seller_id === user?.id
-  )
+  const byNewest = (a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0)
 
-  const active     = modeConvs.filter(c => ACTIVE_STATUSES.includes(c.status))
+  const modeConvs  = conversations
+    .filter(c => mode === 'buyer' ? c.buyer_id === user?.id : c.seller_id === user?.id)
+    .sort(byNewest)
+
+  const active     = modeConvs.filter(c => !c.listing_removed && ACTIVE_STATUSES.includes(c.status))
   const yourTurn   = active.filter(c => isYourTurn(c, user?.id, mode))
   const waiting    = active.filter(c => !isYourTurn(c, user?.id, mode))
-  const negotiated = modeConvs.filter(c => NEGOTIATED_STATUSES.includes(displayStatus(c, user?.id)))
-  const sold       = modeConvs.filter(c => SOLD_STATUSES.includes(displayStatus(c, user?.id)))
-  const cancelled  = modeConvs.filter(c => DEAD_STATUSES.includes(c.status))
+  const negotiated = modeConvs.filter(c => !c.listing_removed && NEGOTIATED_STATUSES.includes(displayStatus(c, user?.id)))
+  const sold       = modeConvs.filter(c => !c.listing_removed && SOLD_STATUSES.includes(displayStatus(c, user?.id)))
+  const cancelled  = modeConvs.filter(c => !c.listing_removed && DEAD_STATUSES.includes(c.status))
+  const removed    = modeConvs.filter(c => c.listing_removed)
 
   const tabs = [
     { key: 'all',        label: `All (${modeConvs.length})` },
@@ -116,6 +122,7 @@ export default function HistoryView({ conversations, tab, setTab, onBack, onOpen
     { key: 'negotiated', label: `Negotiated (${negotiated.length})` },
     { key: 'sold',       label: `${mode === 'buyer' ? 'Purchased' : 'Sold'} (${sold.length})` },
     { key: 'cancelled',  label: `Cancelled (${cancelled.length})` },
+    ...(removed.length > 0 ? [{ key: 'removed', label: `🗑️ Removed (${removed.length})`, highlight: removed.some(c => !c.seen_by_buyer) }] : []),
   ]
 
   const current =
@@ -124,6 +131,7 @@ export default function HistoryView({ conversations, tab, setTab, onBack, onOpen
     tab === 'waiting'    ? waiting    :
     tab === 'negotiated' ? negotiated :
     tab === 'sold'       ? sold       :
+    tab === 'removed'    ? removed    :
     cancelled
 
   return (

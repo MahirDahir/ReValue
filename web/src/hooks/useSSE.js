@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || ''
 
-export function useSSE({ token, onSellerCounts, onBuyerCounts, onConversation }) {
+export function useSSE({ token, onSellerCounts, onBuyerCounts, onConversation, onNotification }) {
   const esRef = useRef(null)
 
   useEffect(() => {
@@ -19,9 +19,10 @@ export function useSSE({ token, onSellerCounts, onBuyerCounts, onConversation })
     es.onmessage = (e) => {
       let msg
       try { msg = JSON.parse(e.data) } catch { return }
-      if (msg.kind === 'seller_counts') onSellerCounts?.(msg.data)
+      if (msg.kind === 'seller_counts')    onSellerCounts?.(msg.data)
       else if (msg.kind === 'buyer_counts') onBuyerCounts?.(msg.data)
-      else if (msg.kind === 'conversation')  onConversation?.(msg.data)
+      else if (msg.kind === 'conversation') onConversation?.(msg.data)
+      else if (msg.kind === 'notification') onNotification?.(msg.message, msg.listing_id)
     }
 
     es.onerror = () => {

@@ -34,7 +34,7 @@ function App() {
     loadListings, loadSellerUnreadCounts, loadBuyerPendingCounts,
     setSellerCounts, setBuyerPendingCounts,
     handleFilter,
-    removeListing, changeListingStatus,
+    removeListing, changeListingStatus, patchListingStatus,
   } = useListings()
   const {
     conversation, contact, listingConversations, myConversations, contactsRevealed,
@@ -83,6 +83,14 @@ function App() {
     onBuyerCounts:  setBuyerPendingCounts,
     onConversation: (data) => {
       if (conversationRef.current?.id === data.id) setConversation(data)
+      if (data.listing_status === 'sold' && data.listing_id) {
+        patchListingStatus(data.listing_id, 'sold')
+      }
+    },
+    onNotification: (message, listingId) => {
+      if (listingId) patchListingStatus(listingId, '_removed')
+      setSuccess(message)
+      setTimeout(() => setSuccess(''), 5000)
     },
   })
 
@@ -104,8 +112,16 @@ function App() {
   }
 
   const handleDeleteListing = async (listingId) => {
-    if (!window.confirm('Delete this listing? This cannot be undone.')) return
     try { await removeListing(listingId) }
+    catch (err) {
+      const detail = err.response?.data?.detail || ''
+      if (detail.startsWith('active_negotiations:')) return detail  // card handles it
+      setError(detail || 'Failed to delete listing')
+    }
+  }
+
+  const handleForceDeleteListing = async (listingId) => {
+    try { await removeListing(listingId, true) }
     catch (err) { setError(err.response?.data?.detail || 'Failed to delete listing') }
   }
 
@@ -186,7 +202,7 @@ function App() {
 
   const displayListings = mode === 'seller'
     ? listings.filter(l => sellerStatusFilter ? l.status === sellerStatusFilter : true)
-    : listings.filter(l => l.status === 'available' && l.seller_id !== user?.id)
+    : listings.filter(l => l.status === 'available' && l.status !== '_removed' && l.seller_id !== user?.id)
 
   return (
     <div className={`app mode-${mode}`}>
@@ -213,6 +229,7 @@ function App() {
             onConversations={openNegotiationsList}
             onEdit={(listing) => { setSelectedListing(listing); setView('edit') }}
             onDelete={handleDeleteListing}
+            onForceDelete={handleForceDeleteListing}
             onStatusChange={handleStatusChange}
             onMarkSoldToBuyer={markSoldToBuyer}
           />

@@ -11,14 +11,16 @@ export default function ListingCard({
   onConversations,
   onEdit,
   onDelete,
+  onForceDelete,
   onStatusChange,
   onMarkSoldToBuyer,
 }) {
   const { token, user, mode } = useAppContext()
   const isSold = listing.status === 'sold'
-  const [showSoldPicker, setShowSoldPicker]   = useState(false)
-  const [soldBuyers, setSoldBuyers]           = useState(null)
-  const [loadingBuyers, setLoadingBuyers]     = useState(false)
+  const [showSoldPicker, setShowSoldPicker]         = useState(false)
+  const [soldBuyers, setSoldBuyers]                 = useState(null)
+  const [loadingBuyers, setLoadingBuyers]           = useState(false)
+  const [activeNegCount, setActiveNegCount]         = useState(null)
 
   const handleMarkSoldClick = async () => {
     setLoadingBuyers(true)
@@ -119,8 +121,37 @@ export default function ListingCard({
                 </button>
               )}
               <button className="btn btn-ghost btn-sm" onClick={() => onEdit(listing)} title="Edit listing">✏️</button>
-              <button className="btn btn-delete btn-sm" onClick={() => onDelete(listing.id)} title="Delete listing">🗑️</button>
+              <button className="btn btn-delete btn-sm" title="Delete listing" onClick={async () => {
+                setActiveNegCount(null)
+                const result = await onDelete(listing.id)
+                if (typeof result === 'string' && result.startsWith('active_negotiations:')) {
+                  setActiveNegCount(parseInt(result.split(':')[1], 10))
+                }
+              }}>🗑️</button>
             </div>
+
+            {/* Active negotiations warning */}
+            {activeNegCount !== null && (
+              <div style={{ marginTop: '10px', padding: '12px', background: '#fff3e0', borderRadius: '8px', border: '1px solid #ffb74d' }}>
+                <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '6px', color: '#e65100' }}>
+                  ⚠️ {activeNegCount} active negotiation{activeNegCount > 1 ? 's' : ''} in progress
+                </div>
+                <p style={{ fontSize: '13px', color: '#555', marginBottom: '10px' }}>
+                  Deleting will cancel all open negotiations and notify the buyers.
+                </p>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="btn btn-danger btn-sm" onClick={async () => {
+                    setActiveNegCount(null)
+                    await onForceDelete(listing.id)
+                  }}>
+                    Cancel all &amp; delete
+                  </button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setActiveNegCount(null)}>
+                    Keep listing
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Mark Sold — buyer picker */}
             {showSoldPicker && (

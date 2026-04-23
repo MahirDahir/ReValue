@@ -28,6 +28,6 @@ export function updateListingStatus(id, newStatus) {
   return client.put(`/listings/${id}/status`, formData)
 }
 
-export function deleteListing(id) {
-  return client.delete(`/listings/${id}`)
+export function deleteListing(id, force = false) {
+  return client.delete(`/listings/${id}`, { params: force ? { force: true } : {} })
 }

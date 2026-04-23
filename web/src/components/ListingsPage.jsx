@@ -15,6 +15,7 @@ export default function ListingsPage({
   onConversations,
   onEdit,
   onDelete,
+  onForceDelete,
   onStatusChange,
   onMarkSoldToBuyer,
 }) {
@@ -94,6 +95,7 @@ export default function ListingsPage({
               onConversations={onConversations}
               onEdit={onEdit}
               onDelete={onDelete}
+              onForceDelete={onForceDelete}
               onStatusChange={onStatusChange}
               onMarkSoldToBuyer={onMarkSoldToBuyer}
             />

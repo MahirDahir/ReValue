@@ -66,11 +66,12 @@ def _to_dict(conv: Conversation, db: Session, include_events: bool = True) -> di
         "agreed_pickup":         conv.agreed_pickup,
         "pickup_suggested_by":   str(conv.pickup_suggested_by) if conv.pickup_suggested_by else None,
         "price_suggested_by":    str(conv.price_suggested_by) if conv.price_suggested_by else None,
-        "listing_title":         listing.title if listing else None,
+        "listing_title":         (listing.title if listing else None) or conv.listing_title_snapshot,
         "listing_has_price":     listing.estimated_price is not None if listing else False,
         "listing_pickup_slots":  listing.pickup_slots or [] if listing else [],
         "listing_status":        listing.status if listing else None,
         "actual_buyer_id":       str(listing.actual_buyer_id) if listing and listing.actual_buyer_id else None,
+        "listing_removed":       conv.listing_removed,
         "buyer_name":            buyer.name if buyer else None,
         "seller_name":           seller.name if seller else None,
         "events":                _events(db, conv.id) if include_events else [],
@@ -495,8 +496,9 @@ def mark_sold_to_buyer(db: Session, listing_id: UUID, buyer_conv_id: UUID, curre
         raise HTTPException(status_code=400, detail="Can only confirm a buyer whose contact was already shared")
 
     # Mark listing sold with the actual buyer
-    listing.status          = ListingStatus.SOLD
-    listing.actual_buyer_id = winning_conv.buyer_id
+    listing.status               = ListingStatus.SOLD
+    listing.actual_buyer_id      = winning_conv.buyer_id
+    winning_conv.seen_by_buyer   = False
 
     # Cancel all other active conversations for this listing
     other_convs = db.query(Conversation).filter(

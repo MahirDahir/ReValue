@@ -40,15 +40,22 @@ function NextStep({ text }) {
   )
 }
 
+const MAX_VISIBLE_EVENTS = 10
+
 function Timeline({ events }) {
   if (!events || events.length === 0) return null
+  const sorted = [...events].reverse()
   return (
-    <div style={{ marginBottom: '20px' }}>
+    <div style={{ marginTop: '20px', marginBottom: '8px' }}>
       <div style={{ fontSize: '12px', fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
         History
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        {events.map((e, i) => {
+      <div style={{
+        maxHeight: '220px', overflowY: 'auto',
+        display: 'flex', flexDirection: 'column', gap: '6px',
+        paddingRight: '4px',
+      }}>
+        {sorted.slice(0, MAX_VISIBLE_EVENTS).map((e, i) => {
           const label = EVENT_LABELS[e.event_type]?.(e) || `${e.event_type}${e.value ? ': ' + e.value : ''}`
           return (
             <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', fontSize: '13px' }}>
@@ -59,6 +66,11 @@ function Timeline({ events }) {
             </div>
           )
         })}
+        {sorted.length > MAX_VISIBLE_EVENTS && (
+          <div style={{ fontSize: '12px', color: '#bbb', textAlign: 'center', paddingTop: '4px' }}>
+            + {sorted.length - MAX_VISIBLE_EVENTS} earlier events
+          </div>
+        )}
       </div>
     </div>
   )
@@ -218,14 +230,11 @@ export default function ConversationView({ conversation, listing, contact, onSta
         )}
       </div>
 
-      {/* Event timeline */}
-      <Timeline events={conversation.events} />
-
       {/* ── REOPEN (only the canceller can undo) ── */}
       {iCancelled && conversation.listing_status === 'available' && (
         <button
           className="btn btn-primary"
-          style={{ width: '100%', marginTop: '8px' }}
+          style={{ width: '100%', marginBottom: '8px' }}
           onClick={() => act('reopen')}
         >
           🔄 Reopen negotiation
@@ -270,7 +279,6 @@ export default function ConversationView({ conversation, listing, contact, onSta
         )}
 
         {/* ── PRICE PHASE ── */}
-        {/* Buyer: suggest or re-suggest price (after decline resets to price_pending) */}
         {isBuyer && s === 'price_pending' && (
           <div className="form-group">
             <label>Suggest a price ($)</label>
@@ -287,7 +295,6 @@ export default function ConversationView({ conversation, listing, contact, onSta
           </div>
         )}
 
-        {/* Seller accepts / declines buyer offer */}
         {isSeller && s === 'price_suggested' && !iMyPriceSuggestion && (
           <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
             <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => act('accept_price')}>✅ Accept ${conversation.suggested_price}</button>
@@ -295,7 +302,6 @@ export default function ConversationView({ conversation, listing, contact, onSta
           </div>
         )}
 
-        {/* Seller counter-offer after declining (now in price_pending) OR update own pending suggestion */}
         {isSeller && (s === 'price_pending' || (s === 'price_suggested' && iMyPriceSuggestion)) && (
           <div className="form-group">
             <label>{s === 'price_pending' ? 'Counter with your price ($)' : 'Update your offer ($)'}</label>
@@ -313,7 +319,6 @@ export default function ConversationView({ conversation, listing, contact, onSta
           </div>
         )}
 
-        {/* Buyer accepts / declines seller counter */}
         {isBuyer && s === 'price_suggested' && !iMyPriceSuggestion && (
           <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
             <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => act('accept_price')}>✅ Accept ${conversation.suggested_price}</button>
@@ -321,7 +326,6 @@ export default function ConversationView({ conversation, listing, contact, onSta
           </div>
         )}
 
-        {/* Buyer update own pending price suggestion */}
         {isBuyer && s === 'price_suggested' && iMyPriceSuggestion && (
           <div className="form-group">
             <label>Update your offer ($)</label>
@@ -346,7 +350,6 @@ export default function ConversationView({ conversation, listing, contact, onSta
             label="Suggest a pickup date & time" />
         )}
 
-        {/* Other party proposed — accept or counter */}
         {s === 'pickup_suggested' && !iMyPickupSuggestion && (
           <>
             <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
@@ -358,7 +361,6 @@ export default function ConversationView({ conversation, listing, contact, onSta
           </>
         )}
 
-        {/* Update your own pending pickup suggestion */}
         {s === 'pickup_suggested' && iMyPickupSuggestion && (
           <PickupInput validSlots={validSlots} pickupInput={pickupInput} setPickupInput={setPickupInput}
             pickupError={pickupError} setPickupError={setPickupError} onPropose={handleSuggestPickup}
@@ -414,6 +416,9 @@ export default function ConversationView({ conversation, listing, contact, onSta
         )}
 
       </>}
+
+      {/* ── EVENT TIMELINE (bottom) ── */}
+      <Timeline events={conversation.events} />
     </div>
   )
 }

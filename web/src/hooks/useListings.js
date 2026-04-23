@@ -57,8 +57,8 @@ export function useListings() {
     } catch { /* non-fatal */ }
   }
 
-  const removeListing = async (listingId) => {
-    await listingsApi.deleteListing(listingId)
+  const removeListing = async (listingId, force = false) => {
+    await listingsApi.deleteListing(listingId, force)
     const updated = allListings.filter(l => l.id !== listingId)
     setAllListings(updated)
     applyFilter(updated, activeFilter)
@@ -76,6 +76,14 @@ export function useListings() {
     setTimeout(() => setSuccess(''), 2000)
   }
 
+  const patchListingStatus = (listingId, newStatus) => {
+    setAllListings(prev => {
+      const updated = prev.map(l => l.id === listingId ? { ...l, status: newStatus } : l)
+      return updated
+    })
+    setListings(prev => prev.map(l => l.id === listingId ? { ...l, status: newStatus } : l))
+  }
+
   return {
     allListings, listings, activeFilter,
     sellerCounts, buyerPendingCounts,
@@ -85,6 +93,6 @@ export function useListings() {
     loadListings, loadSellerCounts, loadSellerUnreadCounts, loadBuyerPendingCounts,
     setSellerCounts, setBuyerPendingCounts,
     handleFilter, applyFilter,
-    removeListing, changeListingStatus,
+    removeListing, changeListingStatus, patchListingStatus,
   }
 }

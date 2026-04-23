@@ -7,7 +7,9 @@ import uuid as _uuid
 from models.postgres.listing import Listing, ListingStatus
 from models.postgres.user import User
 from models.postgres.conversation import Conversation, ConversationStatus
+from models.postgres.conversation_event import ConversationEvent
 from services.image_service import save_upload_file, get_image_url, safe_delete_upload
+from services.sse_bus import notify as _notify
 from schemas.listing import ListingUpdate
 
 
@@ -215,7 +217,7 @@ def update_listing_status(
     return {"message": f"Listing status updated to {new_status}", "status": new_status}
 
 
-def delete_listing(db: Session, listing_id: UUID, current_user: User) -> dict:
+def delete_listing(db: Session, listing_id: UUID, current_user: User, force: bool = False) -> dict:
     listing = db.query(Listing).filter(Listing.id == listing_id).first()
     if not listing:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Listing not found")
@@ -230,20 +232,37 @@ def delete_listing(db: Session, listing_id: UUID, current_user: User) -> dict:
         ConversationStatus.PRICE_AGREED, ConversationStatus.PICKUP_SUGGESTED,
         ConversationStatus.PICKUP_AGREED,
     ]
-    active_count = db.query(Conversation).filter(
+    active_convs = db.query(Conversation).filter(
         Conversation.listing_id == listing_id,
         Conversation.status.in_(active_statuses),
-    ).count()
-    if active_count > 0:
+    ).all()
+
+    if active_convs and not force:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot delete: {active_count} active negotiation(s) in progress. Cancel them first or mark the listing as sold.",
+            detail=f"active_negotiations:{len(active_convs)}",
         )
+
+    # Mark active conversations as listing_removed (keeps buyer history)
+    for conv in active_convs:
+        conv.listing_removed        = True
+        conv.listing_title_snapshot = listing.title
+        conv.seen_by_buyer          = False
+        conv.status                 = ConversationStatus.CANCELLED
+        conv.cancelled_by           = current_user.id
 
     for img_url in listing.images:
         safe_delete_upload(img_url)
 
     db.delete(listing)
     db.commit()
+
+    # Notify active buyers via SSE after commit
+    for conv in active_convs:
+        _notify(str(conv.buyer_id), {
+            "kind":       "notification",
+            "message":    f'"{listing.title}" has been removed by the seller.',
+            "listing_id": str(listing_id),
+        })
 
     return {"message": "Listing deleted successfully"}

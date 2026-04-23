@@ -27,9 +27,11 @@ export default function NegotiationsListView({ listing, conversations, onSelect,
   const { user } = useAppContext()
   const [tab, setTab] = useState('active')
 
-  const active    = conversations.filter(c => ACTIVE_STATUSES.includes(c.status))
-  const done      = conversations.filter(c => DONE_STATUSES.includes(c.status))
-  const cancelled = conversations.filter(c => c.status === 'cancelled')
+  const byNewest = (a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0)
+
+  const active    = conversations.filter(c => ACTIVE_STATUSES.includes(c.status)).sort(byNewest)
+  const done      = conversations.filter(c => DONE_STATUSES.includes(c.status)).sort(byNewest)
+  const cancelled = conversations.filter(c => c.status === 'cancelled').sort(byNewest)
 
   const tabs = [
     { key: 'active',    label: `Active (${active.length})` },

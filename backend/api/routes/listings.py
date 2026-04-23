@@ -103,7 +103,8 @@ def update_listing_status(
 @router.delete("/{listing_id}")
 def delete_listing(
     listing_id: UUID,
+    force: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return listing_service.delete_listing(db, listing_id, current_user)
+    return listing_service.delete_listing(db, listing_id, current_user, force=force)

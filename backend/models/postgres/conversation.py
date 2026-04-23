@@ -19,7 +19,7 @@ class Conversation(Base):
     __tablename__ = "conversations"
 
     id            = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    listing_id    = Column(UUID(as_uuid=True), ForeignKey("listings.id"), nullable=False, index=True)
+    listing_id    = Column(UUID(as_uuid=True), ForeignKey("listings.id", ondelete="SET NULL"), nullable=True, index=True)
     buyer_id      = Column(UUID(as_uuid=True), ForeignKey("users.id"),   nullable=False, index=True)
     seller_id     = Column(UUID(as_uuid=True), ForeignKey("users.id"),   nullable=False)
 
@@ -43,6 +43,10 @@ class Conversation(Base):
     # notification-seen flags: False means the party has an unread update
     seen_by_buyer  = Column(Boolean, nullable=False, default=True)
     seen_by_seller = Column(Boolean, nullable=False, default=True)
+
+    # set True when seller force-deletes the listing mid-negotiation
+    listing_removed       = Column(Boolean, nullable=False, default=False)
+    listing_title_snapshot = Column(String(200), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
