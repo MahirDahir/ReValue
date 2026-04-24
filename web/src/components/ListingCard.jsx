@@ -45,7 +45,10 @@ export default function ListingCard({
   return (
     <div
       className="listing-card"
-      style={mode === 'buyer' && isSold ? { background: '#ececec', opacity: 0.82 } : {}}
+      style={{
+        ...(mode === 'buyer' && isSold ? { background: '#ececec', opacity: 0.82 } : {}),
+        ...(lightbox ? { transform: 'none' } : {}),
+      }}
     >
       {listing.images?.[0] ? (
         <>
@@ -68,7 +71,8 @@ export default function ListingCard({
               <img
                 src={listing.images[0]}
                 alt={listing.title}
-                style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: '8px', objectFit: 'contain' }}
+                onClick={e => e.stopPropagation()}
+                style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: '8px', objectFit: 'contain', cursor: 'default' }}
               />
             </div>
           )}
