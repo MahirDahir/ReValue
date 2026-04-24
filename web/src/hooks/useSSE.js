@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || ''
+// Derive base URL from VITE_API_URL (strip trailing /api) so SSE works on PaaS
+const _apiUrl = import.meta.env.VITE_API_URL || '/api'
+const BACKEND_URL = _apiUrl.endsWith('/api') ? _apiUrl.slice(0, -4) : ''
 
 export function useSSE({ token, onSellerCounts, onBuyerCounts, onConversation, onNotification }) {
   const esRef = useRef(null)
