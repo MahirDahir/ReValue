@@ -38,11 +38,26 @@ export function useListings() {
   }
 
   const loadListings = async (isSeller = false, clearFirst = false) => {
-    if (clearFirst) { setAllListings([]); setListings([]) }
+    const cacheKey = isSeller ? 'listings_seller' : 'listings_buyer'
+    if (clearFirst) {
+      setAllListings([])
+      setListings([])
+    } else {
+      // Show cached data instantly while fresh data loads
+      try {
+        const cached = localStorage.getItem(cacheKey)
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          setAllListings(parsed)
+          applyFilter(parsed, activeFilter)
+        }
+      } catch { /* ignore parse errors */ }
+    }
     try {
       const res = isSeller
         ? await listingsApi.getMyListings()
         : await listingsApi.getListings()
+      localStorage.setItem(cacheKey, JSON.stringify(res.data))
       setAllListings(res.data)
       applyFilter(res.data, activeFilter)
       if (isSeller) loadSellerCounts()
