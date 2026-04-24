@@ -25,7 +25,7 @@ const DONE_STATUSES   = ['contact_revealed']
 
 export default function NegotiationsListView({ listing, conversations, onSelect, onBack }) {
   const { user } = useAppContext()
-  const [tab, setTab] = useState('active')
+  const [tab, setTab] = useState('all')
 
   const byNewest = (a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0)
 

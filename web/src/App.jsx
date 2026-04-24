@@ -202,7 +202,10 @@ function App() {
   const sellerPendingTotal = Object.values(listingUnreadCounts).reduce((a, b) => a + (b.unseen ?? b), 0)
 
   const displayListings = mode === 'seller'
-    ? listings.filter(l => sellerStatusFilter ? l.status === sellerStatusFilter : true)
+    ? listings.filter(l => {
+        if (sellerStatusFilter === '__negotiating__') return listingUnreadCounts[l.id] !== undefined
+        return sellerStatusFilter ? l.status === sellerStatusFilter : true
+      })
     : listings.filter(l => l.status === 'available' && l.status !== '_removed' && l.seller_id !== user?.id)
 
   return (
