@@ -33,15 +33,19 @@ echo "Waiting for database to accept connections..."
 for i in $(seq 1 15); do
   python - <<'EOF' && break
 import psycopg2, os, sys
+dsn = os.environ.get("DATABASE_URL")
 try:
-    conn = psycopg2.connect(
-        host=os.environ.get("POSTGRES_HOST", "postgres"),
-        port=os.environ.get("POSTGRES_PORT", "5432"),
-        user=os.environ.get("POSTGRES_USER", "postgres"),
-        password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
-        dbname=os.environ.get("POSTGRES_DB", "revalue"),
-        connect_timeout=3,
-    )
+    if dsn:
+        conn = psycopg2.connect(dsn, connect_timeout=3)
+    else:
+        conn = psycopg2.connect(
+            host=os.environ.get("POSTGRES_HOST", "postgres"),
+            port=os.environ.get("POSTGRES_PORT", "5432"),
+            user=os.environ.get("POSTGRES_USER", "postgres"),
+            password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
+            dbname=os.environ.get("POSTGRES_DB", "revalue"),
+            connect_timeout=3,
+        )
     conn.close()
     print("Database ready.")
     sys.exit(0)
