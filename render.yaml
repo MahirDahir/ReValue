@@ -32,9 +32,10 @@ services:
     runtime: docker
     dockerfilePath: ./web/Dockerfile
     dockerContext: ./web
-    dockerBuildArgs:
+    envVars:
       - key: VITE_API_URL
         value: https://revalue-backend.onrender.com/api
+        toBuildArg: true
 
 # ── PostgreSQL Database ────────────────────────────────────────────────────
 databases:
