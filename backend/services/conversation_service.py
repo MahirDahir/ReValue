@@ -382,16 +382,17 @@ def get_pending_counts(db: Session, current_user: User) -> dict:
         uid = str(current_user.id)
 
         your_turn = (
-            s == ConversationStatus.CANCELLED or
             s == ConversationStatus.PRICE_PENDING or
             (s == ConversationStatus.PRICE_SUGGESTED and conv.price_suggested_by and str(conv.price_suggested_by) != uid) or
             (s == ConversationStatus.PICKUP_SUGGESTED and conv.pickup_suggested_by and str(conv.pickup_suggested_by) != uid) or
             s == ConversationStatus.PICKUP_AGREED
         )
+        # Unseen: notify seller of any update they haven't viewed yet (including cancellations)
+        unseen = not conv.seen_by_seller and s != ConversationStatus.CONTACT_REVEALED
 
         if your_turn:
             your_turn_counts[lid] = your_turn_counts.get(lid, 0) + 1
-        if your_turn and not conv.seen_by_seller:
+        if unseen:
             unseen_counts[lid] = unseen_counts.get(lid, 0) + 1
 
     # Return combined structure: {listing_id: {unseen, your_turn}}
