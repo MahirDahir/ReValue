@@ -12,7 +12,9 @@ export default function RegisterPage() {
     try {
       await register(form.name, form.phone, form.password)
     } catch (err) {
-      setError(err.response?.data?.detail || 'Registration failed')
+      const detail = err.response?.data?.detail
+      const msg = Array.isArray(detail) ? detail.map(d => d.msg).join(', ') : (detail || 'Registration failed')
+      setError(msg)
     }
   }
 
