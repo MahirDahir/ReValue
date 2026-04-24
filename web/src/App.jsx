@@ -40,7 +40,7 @@ function App() {
     conversation, contact, listingConversations, myConversations, contactsRevealed,
     startWithPrice, loadConversation, loadMyListingConversation, doAction,
     markSeen, revealContact, loadListingConversations, loadMyConversations,
-    loadContactsRevealed, resetConversation,
+    loadContactsRevealed, resetConversation, resetListingConversations, resetMyConversations,
     setConversation,
   } = useConversation()
   const { fetchLocationName, getLocationDisplay } = useGeocoding()
@@ -150,6 +150,7 @@ function App() {
   // Seller: view all negotiations for a listing
   const openNegotiationsList = (listing) => {
     setSelectedListing(listing)
+    resetListingConversations()
     loadListingConversations(listing.id)
     setView('negotiations')
   }
@@ -162,6 +163,7 @@ function App() {
   }
 
   const openNegotiations = () => {
+    resetMyConversations()
     loadMyConversations()
     setView('history')
   }
@@ -169,6 +171,7 @@ function App() {
   // Re-open a conversation from history
   const openConversationFromHistory = (conv) => {
     setPrevView('history')
+    resetConversation()
     loadConversation(conv.id)
     setSelectedListing({ id: conv.listing_id, title: conv.listing_title, seller_name: conv.seller_name })
     setView('conversation')

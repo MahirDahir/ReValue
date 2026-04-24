@@ -109,11 +109,14 @@ export function useConversation() {
     setContact(null)
   }
 
+  const resetListingConversations = () => setListingConvs([])
+  const resetMyConversations      = () => setMyConversations([])
+
   return {
     conversation, contact, listingConversations, myConversations, contactsRevealed,
     startWithPrice, loadConversation, loadMyListingConversation, doAction,
     markSeen, revealContact, loadListingConversations, loadMyConversations,
-    loadContactsRevealed, resetConversation,
+    loadContactsRevealed, resetConversation, resetListingConversations, resetMyConversations,
     setConversation,
   }
 }
