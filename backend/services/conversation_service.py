@@ -178,6 +178,13 @@ def mark_seen(db: Session, conv_id: UUID, current_user: User) -> dict:
         conv.seen_by_seller = True
     db.commit()
     db.refresh(conv)
+    # Push updated counts so badge clears instantly via SSE
+    if current_user.id == conv.buyer_id:
+        buyer_counts = get_buyer_pending_counts(db, current_user)
+        _notify(str(current_user.id), {"kind": "buyer_counts", "data": buyer_counts})
+    else:
+        seller_counts = get_pending_counts(db, current_user)
+        _notify(str(current_user.id), {"kind": "seller_counts", "data": seller_counts})
     return _to_dict(conv, db)
 
 

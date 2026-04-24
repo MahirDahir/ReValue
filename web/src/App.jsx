@@ -265,7 +265,6 @@ function App() {
                 onRevealContact={revealContact}
                 onMarkSeen={async (convId) => {
                   await markSeen(convId)
-                  await Promise.all([loadBuyerPendingCounts(), loadSellerUnreadCounts()])
                 }}
                 onBack={() => {
                   if (prevView === 'history') {
