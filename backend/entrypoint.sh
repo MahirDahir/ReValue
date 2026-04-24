@@ -29,6 +29,7 @@ fi
 
 # Wait for Postgres to be ready to accept connections (healthcheck passes TCP
 # before Postgres is fully ready for queries)
+echo "DEBUG DATABASE_URL=${DATABASE_URL}"
 echo "Waiting for database to accept connections..."
 for i in $(seq 1 15); do
   python - <<'EOF' && break
