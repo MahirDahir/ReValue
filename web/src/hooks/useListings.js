@@ -18,10 +18,15 @@ export function useListings() {
   allListingsRef.current = allListings
   const buyerPendingCountsRef = useRef({})
   buyerPendingCountsRef.current = buyerPendingCounts
+  const sellerCountsRef = useRef({})
+  sellerCountsRef.current = sellerCounts
 
   const applyFilter = (source, filterType) => {
     if (filterType === '__negotiating__') {
-      setListings(source.filter(l => buyerPendingCountsRef.current[l.id] > 0))
+      setListings(source.filter(l =>
+        buyerPendingCountsRef.current[l.id] > 0 ||
+        sellerCountsRef.current[l.id] !== undefined
+      ))
     } else {
       setListings(filterType ? source.filter(l => l.waste_category === filterType) : source)
     }

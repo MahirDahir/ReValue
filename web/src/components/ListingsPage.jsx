@@ -53,14 +53,6 @@ export default function ListingsPage({
               {f.label}
             </button>
           ))}
-          {mode === 'buyer' && Object.keys(buyerPendingCounts).some(id => buyerPendingCounts[id] > 0) && (
-            <button
-              className={`filter-btn ${activeFilter === '__negotiating__' ? 'active' : ''}`}
-              onClick={() => onFilter('__negotiating__')}
-            >
-              🤝 Negotiating
-            </button>
-          )}
         </div>
 
         {mode === 'seller' && (
@@ -69,7 +61,7 @@ export default function ListingsPage({
               { value: '',          label: 'All',       emoji: '' },
               { value: 'available', label: 'Available', emoji: '🟢' },
               { value: 'sold',      label: 'Sold',      emoji: '🏷️' },
-              { value: 'pending',   label: 'Pending',   emoji: '⏳' },
+              { value: '__negotiating__', label: 'Negotiating', emoji: '🤝' },
             ].map(f => (
               <button
                 key={f.value}

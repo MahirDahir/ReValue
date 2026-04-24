@@ -33,13 +33,16 @@ export default function NegotiationsListView({ listing, conversations, onSelect,
   const done      = conversations.filter(c => DONE_STATUSES.includes(c.status)).sort(byNewest)
   const cancelled = conversations.filter(c => c.status === 'cancelled').sort(byNewest)
 
+  const all = conversations.slice().sort(byNewest)
+
   const tabs = [
+    { key: 'all',       label: `All (${all.length})` },
     { key: 'active',    label: `Active (${active.length})` },
     { key: 'done',      label: `Deal done (${done.length})` },
     { key: 'cancelled', label: `Cancelled (${cancelled.length})` },
   ]
 
-  const current = tab === 'active' ? active : tab === 'done' ? done : cancelled
+  const current = tab === 'all' ? all : tab === 'active' ? active : tab === 'done' ? done : cancelled
 
   return (
     <div className="form-container" style={{ maxWidth: '600px' }}>
