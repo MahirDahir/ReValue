@@ -156,6 +156,7 @@ function App() {
 
   const openSellerConversation = (conv) => {
     setPrevView('negotiations')
+    resetConversation()
     loadConversation(conv.id)
     setView('conversation')
   }

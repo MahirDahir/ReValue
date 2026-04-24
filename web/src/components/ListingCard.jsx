@@ -21,6 +21,7 @@ export default function ListingCard({
   const [soldBuyers, setSoldBuyers]                 = useState(null)
   const [loadingBuyers, setLoadingBuyers]           = useState(false)
   const [activeNegCount, setActiveNegCount]         = useState(null)
+  const [lightbox, setLightbox]                     = useState(false)
 
   const handleMarkSoldClick = async () => {
     setLoadingBuyers(true)
@@ -47,7 +48,31 @@ export default function ListingCard({
       style={mode === 'buyer' && isSold ? { background: '#ececec', opacity: 0.82 } : {}}
     >
       {listing.images?.[0] ? (
-        <img src={listing.images[0]} alt={listing.title} className="listing-image" />
+        <>
+          <img
+            src={listing.images[0]}
+            alt={listing.title}
+            className="listing-image"
+            style={{ cursor: 'zoom-in' }}
+            onClick={() => setLightbox(true)}
+          />
+          {lightbox && (
+            <div
+              onClick={() => setLightbox(false)}
+              style={{
+                position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                zIndex: 9999, cursor: 'zoom-out',
+              }}
+            >
+              <img
+                src={listing.images[0]}
+                alt={listing.title}
+                style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: '8px', objectFit: 'contain' }}
+              />
+            </div>
+          )}
+        </>
       ) : (
         <div className="listing-image no-image">{WASTE_ICONS[listing.waste_category] || '📦'}</div>
       )}

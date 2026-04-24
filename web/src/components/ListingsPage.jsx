@@ -53,6 +53,14 @@ export default function ListingsPage({
               {f.label}
             </button>
           ))}
+          {mode === 'buyer' && Object.keys(buyerPendingCounts).some(id => buyerPendingCounts[id] > 0) && (
+            <button
+              className={`filter-btn ${activeFilter === '__negotiating__' ? 'active' : ''}`}
+              onClick={() => onFilter('__negotiating__')}
+            >
+              🤝 Negotiating
+            </button>
+          )}
         </div>
 
         {mode === 'seller' && (
