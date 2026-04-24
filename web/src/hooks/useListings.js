@@ -20,6 +20,10 @@ export function useListings() {
   buyerPendingCountsRef.current = buyerPendingCounts
   const sellerCountsRef = useRef({})
   sellerCountsRef.current = sellerCounts
+  const activeFilterRef = useRef('')
+  activeFilterRef.current = activeFilter
+  // Tracks the latest loadListings call — older responses are discarded
+  const loadSeqRef = useRef(0)
 
   const applyFilter = (source, filterType) => {
     if (filterType === '__negotiating__') {
@@ -38,6 +42,7 @@ export function useListings() {
   }
 
   const loadListings = async (isSeller = false, clearFirst = false) => {
+    const seq = ++loadSeqRef.current
     const cacheKey = isSeller ? 'listings_seller' : 'listings_buyer'
     if (clearFirst) {
       setAllListings([])
@@ -49,7 +54,7 @@ export function useListings() {
         if (cached) {
           const parsed = JSON.parse(cached)
           setAllListings(parsed)
-          applyFilter(parsed, activeFilter)
+          applyFilter(parsed, activeFilterRef.current)
         }
       } catch { /* ignore parse errors */ }
     }
@@ -57,9 +62,11 @@ export function useListings() {
       const res = isSeller
         ? await listingsApi.getMyListings()
         : await listingsApi.getListings()
+      // Discard response if a newer request has already completed
+      if (seq !== loadSeqRef.current) return
       localStorage.setItem(cacheKey, JSON.stringify(res.data))
       setAllListings(res.data)
-      applyFilter(res.data, activeFilter)
+      applyFilter(res.data, activeFilterRef.current)
       if (isSeller) loadSellerCounts()
       else loadBuyerPendingCounts()
     } catch (err) {
