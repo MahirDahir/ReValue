@@ -62,4 +62,4 @@ done
 alembic upgrade head
 
 # Single worker required — SSE uses in-memory queue (multi-worker breaks event delivery)
-exec uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1
+exec uvicorn main:app --host 0.0.0.0 --port "${PORT:-8000}" --workers 1
