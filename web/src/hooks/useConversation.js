@@ -27,6 +27,7 @@ export function useConversation() {
     try {
       const res = await convApi.getConversation(convId)
       setConversation(res.data)
+      return res.data
     } catch (err) {
       if (err.response?.status !== 403) {
         setError(err.response?.data?.detail || 'Failed to load conversation')
@@ -81,6 +82,7 @@ export function useConversation() {
     try {
       const res = await convApi.getListingConversations(listingId)
       setListingConvs(res.data)
+      return res.data
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to load conversations')
     }
@@ -99,6 +101,7 @@ export function useConversation() {
     try {
       const res = await convApi.getMyConversations()
       setMyConversations(res.data)
+      return res.data
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to load history')
     }

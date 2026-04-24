@@ -148,32 +148,28 @@ function App() {
   }
 
   // Seller: view all negotiations for a listing
-  const openNegotiationsList = (listing) => {
+  const openNegotiationsList = async (listing) => {
     setSelectedListing(listing)
-    resetListingConversations()
-    loadListingConversations(listing.id)
+    await loadListingConversations(listing.id)
     setView('negotiations')
   }
 
-  const openSellerConversation = (conv) => {
+  const openSellerConversation = async (conv) => {
     setPrevView('negotiations')
-    resetConversation()
-    loadConversation(conv.id)
+    await loadConversation(conv.id)
     setView('conversation')
   }
 
-  const openNegotiations = () => {
-    resetMyConversations()
-    loadMyConversations()
+  const openNegotiations = async () => {
+    await loadMyConversations()
     setView('history')
   }
 
   // Re-open a conversation from history
-  const openConversationFromHistory = (conv) => {
+  const openConversationFromHistory = async (conv) => {
     setPrevView('history')
-    resetConversation()
-    loadConversation(conv.id)
     setSelectedListing({ id: conv.listing_id, title: conv.listing_title, seller_name: conv.seller_name })
+    await loadConversation(conv.id)
     setView('conversation')
   }
 
