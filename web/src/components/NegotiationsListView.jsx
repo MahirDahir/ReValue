@@ -56,7 +56,7 @@ export default function NegotiationsListView({ listing, conversations, onSelect,
       <button className="btn btn-ghost" onClick={onBack} style={{ marginBottom: '16px' }}>← Back</button>
       <h2>🤝 Negotiations — {listing?.title}</h2>
 
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '20px' }}>
+      <div className="filters" style={{ marginBottom: '20px' }}>
         {tabs.map(t => (
           <button
             key={t.key}
