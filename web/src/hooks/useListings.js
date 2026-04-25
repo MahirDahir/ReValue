@@ -101,14 +101,6 @@ export function useListings() {
     setTimeout(() => setSuccess(''), 2000)
   }
 
-  const changeListingStatus = async (listingId, newStatus) => {
-    await listingsApi.updateListingStatus(listingId, newStatus)
-    const updated = allListings.map(l => l.id === listingId ? { ...l, status: newStatus } : l)
-    setAllListings(updated)
-    applyFilter(updated, activeFilter)
-    setSuccess(`Marked as ${newStatus}`)
-    setTimeout(() => setSuccess(''), 2000)
-  }
 
   const patchListingStatus = (listingId, newStatus) => {
     setAllListings(prev => {
@@ -127,6 +119,6 @@ export function useListings() {
     loadListings, loadSellerCounts, loadSellerUnreadCounts, loadBuyerPendingCounts,
     setSellerCounts, setBuyerPendingCounts,
     handleFilter, applyFilter,
-    removeListing, changeListingStatus, patchListingStatus,
+    removeListing, patchListingStatus,
   }
 }

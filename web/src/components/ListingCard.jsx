@@ -12,7 +12,6 @@ export default function ListingCard({
   onEdit,
   onDelete,
   onForceDelete,
-  onStatusChange,
   onMarkSoldToBuyer,
 }) {
   const { token, user, mode } = useAppContext()
@@ -144,11 +143,7 @@ export default function ListingCard({
                   {loadingBuyers ? '…' : 'Mark Sold'}
                 </button>
               )}
-              {isSold && (
-                <button className="btn btn-ghost btn-sm" onClick={() => onStatusChange(listing.id, 'available')}>
-                  Reactivate
-                </button>
-              )}
+
               <button className="btn btn-ghost btn-sm" onClick={() => onEdit(listing)} title="Edit listing">✏️</button>
               <button className="btn btn-delete btn-sm" title="Delete listing" onClick={async () => {
                 setActiveNegCount(null)

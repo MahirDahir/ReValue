@@ -16,7 +16,6 @@ export default function ListingsPage({
   onEdit,
   onDelete,
   onForceDelete,
-  onStatusChange,
   onMarkSoldToBuyer,
 }) {
   const { error, success, mode, setView } = useAppContext()
@@ -96,7 +95,6 @@ export default function ListingsPage({
               onEdit={onEdit}
               onDelete={onDelete}
               onForceDelete={onForceDelete}
-              onStatusChange={onStatusChange}
               onMarkSoldToBuyer={onMarkSoldToBuyer}
             />
           ))}
