@@ -189,12 +189,9 @@ export default function ListingCard({
                 {soldBuyers && soldBuyers.length === 0 ? (
                   <>
                     <p style={{ fontSize: '13px', color: '#666', marginBottom: '8px' }}>
-                      No buyers have reached the contact-sharing stage yet. You can still mark it sold without selecting a buyer.
+                      No buyers have reached the contact-sharing stage yet. Share your contact details with a buyer first before marking as sold.
                     </p>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button className="btn btn-danger btn-sm" onClick={() => { onStatusChange(listing.id, 'sold'); cancelSoldPicker() }}>Mark Sold anyway</button>
-                      <button className="btn btn-ghost btn-sm" onClick={cancelSoldPicker}>Cancel</button>
-                    </div>
+                    <button className="btn btn-ghost btn-sm" onClick={cancelSoldPicker}>Close</button>
                   </>
                 ) : (
                   <>

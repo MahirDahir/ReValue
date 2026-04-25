@@ -200,7 +200,7 @@ export default function ConversationView({ conversation, listing, contact, onSta
       </div>
 
       {/* Sold to another buyer banner */}
-      {soldToOther && (
+      {soldToOther && isBuyer && (
         <div style={{ padding: '12px 14px', background: '#ffebee', border: '1px solid #ef9a9a', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', color: '#b71c1c' }}>
           🏷️ This item was <strong>sold to another buyer</strong>. Your negotiation has been cancelled.
         </div>

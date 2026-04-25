@@ -1,5 +1,6 @@
 import time
 import structlog
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -36,6 +37,13 @@ if settings.SENTRY_DSN:
         environment="development" if settings.DEBUG else "production",
     )
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    log.info("startup", app=settings.APP_NAME)
+    yield
+
+
 app = FastAPI(
     title=settings.APP_NAME,
     description="Marketplace for recycling waste — connecting sellers and buyers",
@@ -43,6 +51,7 @@ app = FastAPI(
     debug=settings.DEBUG,
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
+    lifespan=lifespan,
 )
 
 app.state.limiter = limiter
@@ -83,11 +92,6 @@ async def request_logging(request: Request, call_next):
     )
     return response
 
-
-@app.on_event("startup")
-async def startup_event():
-    init_db()
-    log.info("startup", app=settings.APP_NAME)
 
 
 @app.get("/")

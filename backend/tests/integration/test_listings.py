@@ -130,14 +130,14 @@ def test_delete_other_sellers_listing(client, buyer_headers, sample_listing):
 
 # ── Status transitions ────────────────────────────────────────────────────────
 
-def test_mark_listing_sold(client, seller_headers, sample_listing):
+def test_mark_listing_sold_via_status_endpoint_rejected(client, seller_headers, sample_listing):
+    # sold status must go through mark-sold conversation endpoint, not the status endpoint
     resp = client.put(
         f"/api/listings/{sample_listing['id']}/status",
         data={"new_status": "sold"},
         headers=seller_headers,
     )
-    assert resp.status_code == 200
-    assert resp.json()["status"] == "sold"
+    assert resp.status_code == 400
 
 
 def test_mark_listing_sold_by_non_owner(client, buyer_headers, sample_listing):
