@@ -9,12 +9,13 @@ const STATUS_LABELS = {
   pickup_agreed:    { label: '✅ Pickup agreed',      color: '#2e7d32', bg: '#e8f5e9' },
   contact_revealed: { label: '📱 Contact shared',    color: '#6a1b9a', bg: '#f3e5f5' },
   sold:             { label: '🏷️ Sold',              color: '#1b5e20', bg: '#e8f5e9' },
+  sold_to_another:  { label: '🏷️ Sold to another',   color: '#1b5e20', bg: '#e8f5e9' },
   cancelled:        { label: '❌ Cancelled',          color: '#b71c1c', bg: '#ffebee' },
 }
 
 const ACTIVE_STATUSES     = ['price_pending', 'price_suggested', 'price_agreed', 'pickup_suggested', 'pickup_agreed']
 const NEGOTIATED_STATUSES = ['contact_revealed']
-const SOLD_STATUSES       = ['sold']
+const SOLD_STATUSES       = ['sold', 'sold_to_another']
 const DEAD_STATUSES       = ['cancelled']
 
 STATUS_LABELS['listing_removed'] = { label: '🗑️ Listing removed', color: '#b71c1c', bg: '#ffebee' }
@@ -104,7 +105,7 @@ export default function HistoryView({ conversations, tab, setTab, onBack, onOpen
   const waiting    = active.filter(c => !isYourTurn(c, user?.id, mode))
   const negotiated = modeConvs.filter(c => !c.listing_removed && NEGOTIATED_STATUSES.includes(displayStatus(c, user?.id)))
   const sold       = modeConvs.filter(c => !c.listing_removed && SOLD_STATUSES.includes(displayStatus(c, user?.id)))
-  const cancelled  = modeConvs.filter(c => !c.listing_removed && DEAD_STATUSES.includes(c.status))
+  const cancelled  = modeConvs.filter(c => !c.listing_removed && DEAD_STATUSES.includes(displayStatus(c, user?.id)))
   const removed    = modeConvs.filter(c => c.listing_removed)
 
   const tabs = [

@@ -3,14 +3,15 @@ import { useAppContext } from '../AppContext'
 import { displayStatus } from '../utils/conversation'
 
 const STATUS_LABELS = {
-  price_pending:    'Waiting for offer',
-  price_suggested:  '💰 Price offered',
-  price_agreed:     '✅ Price agreed',
-  pickup_suggested: '📅 Pickup proposed',
-  pickup_agreed:    '✅ Pickup agreed',
-  contact_revealed: '📱 Contact shared',
-  sold:             '🏷️ Sold',
-  cancelled:        'Cancelled',
+  price_pending:     'Waiting for offer',
+  price_suggested:   '💰 Price offered',
+  price_agreed:      '✅ Price agreed',
+  pickup_suggested:  '📅 Pickup proposed',
+  pickup_agreed:     '✅ Pickup agreed',
+  contact_revealed:  '📱 Contact shared',
+  sold:              '🏷️ Sold',
+  sold_to_another:   '🏷️ Sold to another',
+  cancelled:         'Cancelled',
 }
 
 
@@ -29,7 +30,7 @@ function isYourTurn(conv, userId) {
 }
 
 const ACTIVE_STATUSES = ['price_pending', 'price_suggested', 'price_agreed', 'pickup_suggested', 'pickup_agreed']
-const DONE_STATUSES   = ['contact_revealed', 'sold']
+const DONE_STATUSES   = ['contact_revealed', 'sold', 'sold_to_another']
 
 export default function NegotiationsListView({ listing, conversations, onSelect, onBack }) {
   const { user } = useAppContext()
@@ -39,7 +40,7 @@ export default function NegotiationsListView({ listing, conversations, onSelect,
 
   const active    = conversations.filter(c => ACTIVE_STATUSES.includes(c.status)).sort(byNewest)
   const done      = conversations.filter(c => DONE_STATUSES.includes(displayStatus(c, user?.id))).sort(byNewest)
-  const cancelled = conversations.filter(c => c.status === 'cancelled' && displayStatus(c, user?.id) !== 'sold').sort(byNewest)
+  const cancelled = conversations.filter(c => c.status === 'cancelled' && !DONE_STATUSES.includes(displayStatus(c, user?.id))).sort(byNewest)
 
   const all = conversations.slice().sort(byNewest)
 
