@@ -1,6 +1,23 @@
 import { useAppContext } from '../AppContext'
 import { WASTE_ICONS } from '../constants/categories'
+import FilterDropdown from './FilterDropdown'
 import ListingCard from './ListingCard'
+
+const MATERIAL_OPTIONS = [
+  { value: '',            label: 'All materials' },
+  { value: 'plastic',     label: `${WASTE_ICONS.plastic} Plastic` },
+  { value: 'glass',       label: `${WASTE_ICONS.glass} Glass` },
+  { value: 'metal',       label: `${WASTE_ICONS.metal} Metal` },
+  { value: 'electronics', label: `${WASTE_ICONS.electronics} Electronics` },
+  { value: 'other',       label: `${WASTE_ICONS.other} Other` },
+]
+
+const STATUS_OPTIONS = [
+  { value: '',                label: 'All statuses' },
+  { value: 'available',       label: '🟢 Available' },
+  { value: 'sold',            label: '🏷️ Sold' },
+  { value: '__negotiating__', label: '🤝 Negotiating' },
+]
 
 export default function ListingsPage({
   listings,
@@ -35,43 +52,22 @@ export default function ListingsPage({
           )}
         </div>
 
-        <div className="filters">
-          {[
-            { value: '', label: 'All' },
-            { value: 'plastic',     label: `${WASTE_ICONS.plastic} Plastic` },
-            { value: 'glass',       label: `${WASTE_ICONS.glass} Glass` },
-            { value: 'metal',       label: `${WASTE_ICONS.metal} Metal` },
-            { value: 'electronics', label: `${WASTE_ICONS.electronics} Electronics` },
-            { value: 'other',       label: `${WASTE_ICONS.other} Other` },
-          ].map(f => (
-            <button
-              key={f.value}
-              className={`filter-btn ${activeFilter === f.value ? 'active' : ''}`}
-              onClick={() => onFilter(f.value)}
-            >
-              {f.label}
-            </button>
-          ))}
+        <div className="filter-row">
+          <FilterDropdown
+            label="Material"
+            options={MATERIAL_OPTIONS}
+            value={activeFilter}
+            onChange={onFilter}
+          />
+          {mode === 'seller' && (
+            <FilterDropdown
+              label="Status"
+              options={STATUS_OPTIONS}
+              value={sellerStatusFilter}
+              onChange={setSellerStatusFilter}
+            />
+          )}
         </div>
-
-        {mode === 'seller' && (
-          <div className="filters" style={{ marginTop: '8px', marginBottom: '4px' }}>
-            {[
-              { value: '',                 label: 'All' },
-              { value: 'available',        label: '🟢 Available' },
-              { value: 'sold',             label: '🏷️ Sold' },
-              { value: '__negotiating__',  label: '🤝 Negotiating' },
-            ].map(f => (
-              <button
-                key={f.value}
-                className={`filter-btn ${sellerStatusFilter === f.value ? 'active' : ''}`}
-                onClick={() => setSellerStatusFilter(f.value)}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="listings-scroll">

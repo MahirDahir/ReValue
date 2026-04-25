@@ -274,48 +274,105 @@ html, body {
   to   { transform: scale(1); }
 }
 
-/* ── Filter Buttons — single row, horizontal scroll, no wrap ── */
-.filters {
+/* ── Filter Dropdowns ── */
+.filter-row {
   display: flex;
-  gap: 6px;
+  gap: 10px;
+  flex-wrap: wrap;
   margin-bottom: 10px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  padding-bottom: 4px;
-}
-.filters::-webkit-scrollbar { display: none; }
-
-/* In listings-controls, bleed to viewport edges so scroll isn't clipped by parent padding */
-.listings-controls .filters {
-  margin-left: -16px;
-  margin-right: -16px;
-  padding-left: 16px;
-  padding-right: 16px;
+  align-items: flex-end;
 }
 
-.filter-btn {
-  padding: 6px 14px;
+.filter-dropdown-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  min-width: 130px;
+  flex: 1;
+}
+
+.filter-dropdown-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.filter-dropdown-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
   border: 1.5px solid var(--border);
-  border-radius: 20px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   transition: var(--transition);
-  white-space: nowrap;
-  flex-shrink: 0;
-  min-height: 32px;
+  width: 100%;
+  text-align: left;
+  min-height: 36px;
   -webkit-tap-highlight-color: transparent;
 }
-.filter-btn:hover { border-color: var(--primary); color: var(--primary-text); background: var(--primary-light); }
-.filter-btn.active {
+.filter-dropdown-btn:hover,
+.filter-dropdown-btn.open {
   border-color: var(--primary);
-  background: var(--primary);
-  color: white;
+  background: var(--primary-light);
+}
+
+.filter-dropdown-caret {
+  font-size: 9px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.filter-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  overflow: hidden;
+  animation: dropdown-in 0.13s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 160px;
+}
+
+.filter-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-align: left;
+  transition: background var(--transition);
+  -webkit-tap-highlight-color: transparent;
+}
+.filter-dropdown-item:hover { background: var(--bg); }
+.filter-dropdown-item.active {
+  background: var(--primary-light);
+  color: var(--primary-text);
   font-weight: 600;
-  box-shadow: 0 1px 4px rgba(22,163,74,0.25);
+}
+
+.filter-dropdown-check {
+  font-size: 11px;
+  color: var(--primary);
+  font-weight: 700;
 }
 
 /* ── Page Header ── */
@@ -721,7 +778,6 @@ html, body {
 /* ── Tablet+ ── */
 @media (min-width: 768px) {
   .listings-page { padding: 0 24px; }
-  .listings-controls .filters { margin-left: -24px; margin-right: -24px; padding-left: 24px; padding-right: 24px; }
   .view-scroll { padding: 28px 24px; }
   .form-container { padding: 36px 32px; }
 }
