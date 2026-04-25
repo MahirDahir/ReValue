@@ -11,3 +11,7 @@ export function getUserStats(id) {
 export function updateProfile(data) {
   return client.put('/users/me', data)
 }
+
+export function changePassword(old_password, new_password) {
+  return client.post('/users/me/change-password', { old_password, new_password })
+}

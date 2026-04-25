@@ -1,9 +1,10 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from uuid import UUID
+import bcrypt
 
 from models.postgres.user import User
-from schemas.user import UserUpdate
+from schemas.user import UserUpdate, ChangePassword
 
 
 def get_user_profile(db: Session, user_id: UUID) -> dict:
@@ -45,3 +46,13 @@ def update_current_user(db: Session, current_user: User, user_data: UserUpdate) 
         "name": current_user.name,
         "avatar_url": current_user.avatar_url,
     }
+
+
+def change_password(db: Session, current_user: User, data: ChangePassword) -> dict:
+    if not bcrypt.checkpw(data.old_password.encode(), current_user.password_hash.encode()):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    current_user.password_hash = bcrypt.hashpw(data.new_password.encode(), bcrypt.gensalt()).decode()
+    db.commit()
+    return {"message": "Password changed successfully"}

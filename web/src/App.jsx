@@ -21,6 +21,7 @@ import ListingForm from './components/ListingForm'
 import ConversationView from './components/ConversationView'
 import NegotiationsListView from './components/NegotiationsListView'
 import HistoryView from './components/HistoryView'
+import ProfilePage from './components/ProfilePage'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow })
@@ -265,6 +266,7 @@ function App() {
           <div className="view-scroll">
             {view === 'login'    && <LoginPage />}
             {view === 'register' && <RegisterPage />}
+            {view === 'profile'  && <ProfilePage onBack={() => setView('listings')} />}
 
             {view === 'create' && token && (
               <ListingForm onDone={() => loadListings(true)} />
