@@ -60,8 +60,8 @@ export default function NegotiationsListView({ listing, conversations, onSelect,
 
   return (
     <div className="form-container" style={{ maxWidth: '600px' }}>
-      <button className="btn btn-ghost" onClick={onBack} style={{ marginBottom: '16px' }}>← Back</button>
-      <h2>🤝 Negotiations — {listing?.title}</h2>
+      <button className="btn btn-ghost btn-sm" onClick={onBack} style={{ marginBottom: '20px' }}>← Back</button>
+      <h2>Negotiations — {listing?.title}</h2>
 
       <div className="filter-row" style={{ marginBottom: '20px' }}>
         <FilterDropdown

@@ -111,13 +111,13 @@ export default function HistoryView({ conversations, tab, setTab, onBack, onOpen
 
   const showOptions = [
     { value: 'all',        label: `All (${modeConvs.length})` },
-    { value: 'yourTurn',   label: `⚡ Your turn (${yourTurn.length})` },
-    { value: 'waiting',    label: `⏳ Waiting (${waiting.length})` },
-    { value: 'negotiated', label: `📱 Negotiated (${negotiated.length})` },
-    { value: 'sold',       label: `🏷️ ${soldLabel} (${sold.length})` },
-    { value: 'cancelled',  label: `❌ Cancelled (${cancelled.length})` },
+    { value: 'yourTurn',   label: `Your turn (${yourTurn.length})` },
+    { value: 'waiting',    label: `Waiting (${waiting.length})` },
+    { value: 'negotiated', label: `Negotiated (${negotiated.length})` },
+    { value: 'sold',       label: `${soldLabel} (${sold.length})` },
+    { value: 'cancelled',  label: `Cancelled (${cancelled.length})` },
     ...(removed.length > 0
-      ? [{ value: 'removed', label: `🗑️ Removed (${removed.length})${hasUnseen ? ' •' : ''}` }]
+      ? [{ value: 'removed', label: `Removed (${removed.length})${hasUnseen ? ' •' : ''}` }]
       : []),
   ]
 
@@ -132,8 +132,8 @@ export default function HistoryView({ conversations, tab, setTab, onBack, onOpen
 
   return (
     <div className="form-container" style={{ maxWidth: '600px' }}>
-      <button className="btn btn-ghost" onClick={onBack} style={{ marginBottom: '16px' }}>← Back</button>
-      <h2>📋 {mode === 'seller' ? 'Selling' : 'Buying'}</h2>
+      <button className="btn btn-ghost btn-sm" onClick={onBack} style={{ marginBottom: '20px' }}>← Back</button>
+      <h2>{mode === 'seller' ? 'Selling' : 'Buying'}</h2>
 
       <div className="filter-row" style={{ marginBottom: '20px' }}>
         <FilterDropdown
