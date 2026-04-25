@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAppContext } from '../AppContext'
+import { displayStatus } from '../utils/conversation'
 
 const STATUS_LABELS = {
   price_pending:    'Waiting for offer',
@@ -8,7 +9,14 @@ const STATUS_LABELS = {
   pickup_suggested: '📅 Pickup proposed',
   pickup_agreed:    '✅ Pickup agreed',
   contact_revealed: '📱 Contact shared',
-  cancelled:        'Withdrew',
+  sold:             '🏷️ Sold',
+  cancelled:        'Cancelled',
+}
+
+
+function cancelLabel(conv, userId) {
+  if (conv.cancelled_by && String(conv.cancelled_by) === String(userId)) return 'Sold to another'
+  return 'Withdrew'
 }
 
 function isYourTurn(conv, userId) {
@@ -21,7 +29,7 @@ function isYourTurn(conv, userId) {
 }
 
 const ACTIVE_STATUSES = ['price_pending', 'price_suggested', 'price_agreed', 'pickup_suggested', 'pickup_agreed']
-const DONE_STATUSES   = ['contact_revealed']
+const DONE_STATUSES   = ['contact_revealed', 'sold']
 
 export default function NegotiationsListView({ listing, conversations, onSelect, onBack }) {
   const { user } = useAppContext()
@@ -30,8 +38,8 @@ export default function NegotiationsListView({ listing, conversations, onSelect,
   const byNewest = (a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0)
 
   const active    = conversations.filter(c => ACTIVE_STATUSES.includes(c.status)).sort(byNewest)
-  const done      = conversations.filter(c => DONE_STATUSES.includes(c.status)).sort(byNewest)
-  const cancelled = conversations.filter(c => c.status === 'cancelled').sort(byNewest)
+  const done      = conversations.filter(c => DONE_STATUSES.includes(displayStatus(c, user?.id))).sort(byNewest)
+  const cancelled = conversations.filter(c => c.status === 'cancelled' && displayStatus(c, user?.id) !== 'sold').sort(byNewest)
 
   const all = conversations.slice().sort(byNewest)
 
@@ -66,16 +74,18 @@ export default function NegotiationsListView({ listing, conversations, onSelect,
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {current.map(conv => {
+            const ds          = displayStatus(conv, user?.id)
             const unseen      = !conv.seen_by_seller
             const yourTurn    = isYourTurn(conv, user?.id)
             const isCancelled = conv.status === 'cancelled'
+            const isSold      = ds === 'sold'
 
             return (
               <div
                 key={conv.id}
                 className="conversation-row"
                 onClick={() => onSelect(conv)}
-                style={{ opacity: isCancelled ? 0.7 : 1 }}
+                style={{ opacity: isCancelled && !isSold ? 0.7 : 1 }}
               >
                 <div
                   className="conversation-avatar"
@@ -98,11 +108,11 @@ export default function NegotiationsListView({ listing, conversations, onSelect,
                     )}
                     {isCancelled && (
                       <span style={{ fontSize: '11px', color: unseen ? '#b71c1c' : '#999', fontWeight: unseen ? 600 : 400 }}>
-                        {unseen ? '⚠ Withdrew' : 'Withdrew'}
+                        {unseen ? `⚠ ${cancelLabel(conv, user?.id)}` : cancelLabel(conv, user?.id)}
                       </span>
                     )}
                   </div>
-                  <div className="conversation-phone">{STATUS_LABELS[conv.status] || conv.status}</div>
+                  <div className="conversation-phone">{STATUS_LABELS[ds] || ds}</div>
                   {conv.agreed_price && <div style={{ fontSize: '12px', color: '#666' }}>💰 ${conv.agreed_price}</div>}
                 </div>
 

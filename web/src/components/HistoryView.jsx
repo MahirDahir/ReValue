@@ -1,4 +1,5 @@
 import { useAppContext } from '../AppContext'
+import { displayStatus } from '../utils/conversation'
 
 const STATUS_LABELS = {
   price_pending:    { label: 'Waiting for offer',    color: '#888',    bg: '#f5f5f5' },
@@ -18,15 +19,6 @@ const DEAD_STATUSES       = ['cancelled']
 
 STATUS_LABELS['listing_removed'] = { label: '🗑️ Listing removed', color: '#b71c1c', bg: '#ffebee' }
 
-function displayStatus(conv, userId) {
-  if (conv.listing_removed) return 'listing_removed'
-  if (
-    conv.status === 'contact_revealed' &&
-    conv.listing_status === 'sold' &&
-    (conv.actual_buyer_id === userId || conv.seller_id === userId)
-  ) return 'sold'
-  return conv.status
-}
 
 // Is it this user's turn to act?
 function isYourTurn(conv, userId, mode) {
