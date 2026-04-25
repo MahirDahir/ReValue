@@ -282,9 +282,17 @@ html, body {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  padding-bottom: 2px;
+  padding-bottom: 4px;
 }
 .filters::-webkit-scrollbar { display: none; }
+
+/* In listings-controls, bleed to viewport edges so scroll isn't clipped by parent padding */
+.listings-controls .filters {
+  margin-left: -16px;
+  margin-right: -16px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
 
 .filter-btn {
   padding: 6px 14px;
@@ -713,6 +721,7 @@ html, body {
 /* ── Tablet+ ── */
 @media (min-width: 768px) {
   .listings-page { padding: 0 24px; }
+  .listings-controls .filters { margin-left: -24px; margin-right: -24px; padding-left: 24px; padding-right: 24px; }
   .view-scroll { padding: 28px 24px; }
   .form-container { padding: 36px 32px; }
 }
