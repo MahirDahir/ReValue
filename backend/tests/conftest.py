@@ -1,6 +1,8 @@
 import os
 # Must be set before limiter.py / main.py are imported so slowapi skips rate checks in tests
 os.environ["RATELIMIT_ENABLED"] = "False"
+# Use 4 bcrypt rounds in tests instead of 12 — valid hash, ~60x faster per operation
+os.environ["BCRYPT_ROUNDS"] = "4"
 
 import pytest
 from fastapi.testclient import TestClient
