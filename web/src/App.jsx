@@ -289,12 +289,17 @@ function App() {
                 onMarkSeen={async (convId) => {
                   await markSeen(convId)
                 }}
-                onBack={() => {
+                onBack={async () => {
                   if (prevView === 'history') {
-                    loadMyConversations()
-                    setView('history')
+                    setNavigating(true)
+                    await loadMyConversations()
+                    setNavigating(false)
                     resetConversation()
+                    setView('history')
                   } else if (prevView === 'negotiations') {
+                    setNavigating(true)
+                    await loadListingConversations(selectedListing?.id)
+                    setNavigating(false)
                     setView('negotiations')
                   } else {
                     setView('listings')
