@@ -40,7 +40,7 @@ describe('ListingCard', () => {
 
   it('renders status badge', () => {
     renderWithContext(<ListingCard {...defaultProps} />)
-    expect(screen.getByText('available')).toBeInTheDocument()
+    expect(screen.getByText('Available')).toBeInTheDocument()
   })
 
   it('renders waste category and quantity/unit in meta row', () => {
@@ -63,6 +63,6 @@ describe('ListingCard', () => {
   it('shows sold status when listing is sold', () => {
     const soldListing = { ...baseListing, status: 'sold' }
     renderWithContext(<ListingCard {...defaultProps} listing={soldListing} />)
-    expect(screen.getByText('sold')).toBeInTheDocument()
+    expect(screen.getByText('Sold')).toBeInTheDocument()
   })
 })
