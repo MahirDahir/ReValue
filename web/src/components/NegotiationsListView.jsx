@@ -10,13 +10,12 @@ const STATUS_LABELS = {
   pickup_agreed:     '✅ Pickup agreed',
   contact_revealed:  '📱 Contact shared',
   sold:              '🏷️ Sold',
-  sold_to_another:   '🏷️ Sold to another',
+  sold_to_another:   '🏷️ Sold',
   cancelled:         'Cancelled',
 }
 
 
 function cancelLabel(conv, userId) {
-  if (conv.cancelled_by && String(conv.cancelled_by) === String(userId)) return 'Sold to another'
   return 'Withdrew'
 }
 
