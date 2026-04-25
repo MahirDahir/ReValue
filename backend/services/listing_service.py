@@ -18,7 +18,6 @@ VALID_UNITS = ["kg", "pieces"]
 VALID_STATUSES = [
     ListingStatus.AVAILABLE,
     ListingStatus.PENDING,
-    ListingStatus.SOLD,
     ListingStatus.CANCELLED,
 ]
 
@@ -213,30 +212,6 @@ def update_listing_status(
     listing.status = new_status
     db.commit()
     db.refresh(listing)
-
-    # When marked sold with no specific buyer, cancel all active conversations and notify buyers via SSE
-    if new_status == ListingStatus.SOLD:
-        from services.conversation_service import _to_dict as _conv_to_dict, _push_conv_update
-        active_convs = db.query(Conversation).filter(
-            Conversation.listing_id == listing_id,
-            Conversation.status.notin_([ConversationStatus.CANCELLED, ConversationStatus.CONTACT_REVEALED]),
-        ).all()
-        for conv in active_convs:
-            conv.status        = ConversationStatus.CANCELLED
-            conv.cancelled_by  = current_user.id
-            conv.seen_by_buyer = False
-            db.add(ConversationEvent(
-                conversation_id=conv.id,
-                actor_id=current_user.id,
-                actor_name=current_user.name,
-                event_type="cancelled",
-                value="Item sold to another buyer",
-            ))
-        db.commit()
-        db.expire_all()
-        for conv in active_convs:
-            db.refresh(conv)
-            _push_conv_update(db, conv, _conv_to_dict(conv, db))
 
     return {"message": f"Listing status updated to {new_status}", "status": new_status}
 
