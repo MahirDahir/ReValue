@@ -55,26 +55,19 @@ export default function ListingsPage({
         </div>
 
         {mode === 'seller' && (
-          <div style={{ display: 'flex', gap: '8px', marginTop: '8px', marginBottom: '4px' }}>
+          <div className="filters" style={{ marginTop: '8px', marginBottom: '4px' }}>
             {[
-              { value: '',          label: 'All',       emoji: '' },
-              { value: 'available', label: 'Available', emoji: '🟢' },
-              { value: 'sold',      label: 'Sold',      emoji: '🏷️' },
-              { value: '__negotiating__', label: 'Negotiating', emoji: '🤝' },
+              { value: '',                 label: 'All' },
+              { value: 'available',        label: '🟢 Available' },
+              { value: 'sold',             label: '🏷️ Sold' },
+              { value: '__negotiating__',  label: '🤝 Negotiating' },
             ].map(f => (
               <button
                 key={f.value}
+                className={`filter-btn ${sellerStatusFilter === f.value ? 'active' : ''}`}
                 onClick={() => setSellerStatusFilter(f.value)}
-                style={{
-                  padding: '5px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: 600,
-                  border: '2px solid',
-                  borderColor: sellerStatusFilter === f.value ? 'var(--primary)' : '#ddd',
-                  background: sellerStatusFilter === f.value ? 'var(--primary)' : 'white',
-                  color: sellerStatusFilter === f.value ? 'white' : '#555',
-                  cursor: 'pointer',
-                }}
               >
-                {f.emoji} {f.label}
+                {f.label}
               </button>
             ))}
           </div>

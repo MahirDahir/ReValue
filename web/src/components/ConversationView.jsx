@@ -439,24 +439,58 @@ export default function ConversationView({ conversation, listing, contact, onSta
   )
 }
 
+function groupSlotsByDay(slots) {
+  const groups = {}
+  slots.forEach(slot => {
+    const date = new Date(slot.value)
+    const dayKey = date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
+    if (!groups[dayKey]) groups[dayKey] = []
+    groups[dayKey].push(slot)
+  })
+  return Object.entries(groups)
+}
+
 function PickupInput({ validSlots, pickupInput, setPickupInput, pickupError, setPickupError, onPropose, label, btnLabel = 'Propose', btnClass = 'btn-primary' }) {
   return (
     <div className="form-group">
       <label>{label}</label>
       {validSlots.length > 0 ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {validSlots.map(slot => (
-            <button
-              key={slot.value}
-              className={`btn ${pickupInput === slot.value ? 'btn-primary' : 'btn-ghost'}`}
-              style={{ textAlign: 'left' }}
-              onClick={() => { setPickupInput(slot.value); setPickupError('') }}
-            >{slot.label}</button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {groupSlotsByDay(validSlots).map(([day, slots]) => (
+            <div key={day}>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                {day}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {slots.map(slot => {
+                  const time = new Date(slot.value).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+                  const selected = pickupInput === slot.value
+                  return (
+                    <button
+                      key={slot.value}
+                      onClick={() => { setPickupInput(slot.value); setPickupError('') }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        padding: '10px 14px', borderRadius: '8px', textAlign: 'left',
+                        border: `1.5px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
+                        background: selected ? 'var(--primary-light)' : 'var(--surface)',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                    >
+                      <span style={{ fontSize: '16px' }}>{selected ? '🟢' : '⚪'}</span>
+                      <span style={{ fontWeight: selected ? 700 : 500, fontSize: '14px', color: selected ? 'var(--primary-text)' : 'var(--text-primary)' }}>
+                        {time}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           ))}
-          <button className={`btn ${btnClass}`} style={{ marginTop: '6px' }} onClick={() => onPropose(pickupInput)}>
+          <button className={`btn ${btnClass}`} style={{ marginTop: '4px' }} onClick={() => onPropose(pickupInput)}>
             {btnLabel}
           </button>
-          {pickupError && <p style={{ color: '#c00', fontSize: '13px', marginTop: '4px' }}>{pickupError}</p>}
+          {pickupError && <p style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '4px' }}>{pickupError}</p>}
         </div>
       ) : (
         <>
@@ -465,11 +499,11 @@ function PickupInput({ validSlots, pickupInput, setPickupInput, pickupError, set
               type="datetime-local"
               value={pickupInput}
               onChange={e => { setPickupInput(e.target.value); setPickupError('') }}
-              style={{ flex: 1, borderColor: pickupError ? '#c00' : '' }}
+              style={{ flex: 1, borderColor: pickupError ? 'var(--danger)' : '' }}
             />
             <button className={`btn ${btnClass}`} onClick={() => onPropose(pickupInput)}>{btnLabel}</button>
           </div>
-          {pickupError && <p style={{ color: '#c00', fontSize: '13px', marginTop: '4px' }}>{pickupError}</p>}
+          {pickupError && <p style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '4px' }}>{pickupError}</p>}
         </>
       )}
     </div>

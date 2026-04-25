@@ -132,12 +132,12 @@ export default function HistoryView({ conversations, tab, setTab, onBack, onOpen
       <button className="btn btn-ghost" onClick={onBack} style={{ marginBottom: '16px' }}>← Back</button>
       <h2>📋 {mode === 'seller' ? 'Selling' : 'Buying'}</h2>
 
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', flexWrap: 'wrap' }}>
+      <div className="filters" style={{ marginBottom: '20px' }}>
         {tabs.map(t => (
           <button
             key={t.key}
             className={`filter-btn ${tab === t.key ? 'active' : ''}`}
-            style={t.highlight && tab !== t.key ? { borderColor: '#e65100', color: '#e65100' } : {}}
+            style={t.highlight && tab !== t.key ? { borderColor: 'var(--warning)', color: 'var(--warning)' } : {}}
             onClick={() => setTab(t.key)}
           >{t.label}</button>
         ))}
