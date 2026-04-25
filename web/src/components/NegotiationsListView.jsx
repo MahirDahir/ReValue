@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAppContext } from '../AppContext'
+import { displayStatus } from '../utils/conversation'
 
 const STATUS_LABELS = {
   price_pending:    'Waiting for offer',
@@ -12,14 +13,6 @@ const STATUS_LABELS = {
   cancelled:        'Cancelled',
 }
 
-function displayStatus(conv, userId) {
-  if (
-    conv.status === 'contact_revealed' &&
-    conv.listing_status === 'sold' &&
-    conv.actual_buyer_id === conv.buyer_id
-  ) return 'sold'
-  return conv.status
-}
 
 function cancelLabel(conv, userId) {
   if (conv.cancelled_by && String(conv.cancelled_by) === String(userId)) return 'Sold to another'
