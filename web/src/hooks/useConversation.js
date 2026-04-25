@@ -121,6 +121,6 @@ export function useConversation() {
     startWithPrice, loadConversation, loadMyListingConversation, doAction,
     markSeen, revealContact, loadListingConversations, loadMyConversations,
     loadContactsRevealed, resetConversation, resetListingConversations, resetMyConversations,
-    setConversation,
+    setConversation, setMyConversations,
   }
 }

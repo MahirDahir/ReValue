@@ -409,7 +409,7 @@ export default function ConversationView({ conversation, listing, contact, onSta
         )}
 
         {/* ── WITHDRAW (both parties) ── */}
-        {s !== 'contact_revealed' && (
+        {s !== 'contact_revealed' && !listingSold && (
           <button
             className="btn btn-ghost"
             style={{ color: '#c00', marginTop: '16px', width: '100%' }}

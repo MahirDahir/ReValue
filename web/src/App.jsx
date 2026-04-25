@@ -42,7 +42,7 @@ function App() {
     startWithPrice, loadConversation, loadMyListingConversation, doAction,
     markSeen, revealContact, loadListingConversations, loadMyConversations,
     loadContactsRevealed, resetConversation, resetListingConversations, resetMyConversations,
-    setConversation,
+    setConversation, setMyConversations,
   } = useConversation()
   const { fetchLocationName, getLocationDisplay } = useGeocoding()
 
@@ -85,6 +85,7 @@ function App() {
     onBuyerCounts:  setBuyerPendingCounts,
     onConversation: (data) => {
       if (conversationRef.current?.id === data.id) setConversation(data)
+      setMyConversations(prev => prev.map(c => c.id === data.id ? { ...c, ...data } : c))
       if (data.listing_status === 'sold' && data.listing_id) {
         patchListingStatus(data.listing_id, 'sold')
       }
