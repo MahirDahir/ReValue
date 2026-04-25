@@ -132,7 +132,7 @@ export default function ListingCard({
         {/* Seller actions */}
         {mode === 'seller' && listing.seller_id === user?.id && (
           <div className="listing-actions" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'nowrap' }}>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
               <button className="btn btn-primary btn-sm btn-with-badge" onClick={() => onConversations(listing)}>
                 💬 Negotiations
                 {listingUnreadCount?.your_turn > 0 && (
