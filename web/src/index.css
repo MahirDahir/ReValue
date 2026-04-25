@@ -462,6 +462,10 @@ html, body {
   50%       { box-shadow: 0 0 0 8px rgba(229,57,53,0); }
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .chat-input {
   display: flex;
   padding: 10px 12px;

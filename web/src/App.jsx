@@ -49,6 +49,7 @@ function App() {
   const [sellerStatusFilter, setSellerStatusFilter] = useState('')
   const [prevView, setPrevView]                     = useState('listings')
   const [historyTab, setHistoryTab]                 = useState('all')
+  const [navigating, setNavigating]                 = useState(false)
 
   // Init
   useEffect(() => {
@@ -135,7 +136,9 @@ function App() {
     setPrevView('listings')
     setSelectedListing(listing)
     resetConversation()
+    setNavigating(true)
     await loadMyListingConversation(listing.id)
+    setNavigating(false)
     setView('conversation')
   }
 
@@ -150,26 +153,33 @@ function App() {
   // Seller: view all negotiations for a listing
   const openNegotiationsList = async (listing) => {
     setSelectedListing(listing)
+    setNavigating(true)
     await loadListingConversations(listing.id)
+    setNavigating(false)
     setView('negotiations')
   }
 
   const openSellerConversation = async (conv) => {
     setPrevView('negotiations')
+    setNavigating(true)
     await loadConversation(conv.id)
+    setNavigating(false)
     setView('conversation')
   }
 
   const openNegotiations = async () => {
+    setNavigating(true)
     await loadMyConversations()
+    setNavigating(false)
     setView('history')
   }
 
-  // Re-open a conversation from history
   const openConversationFromHistory = async (conv) => {
     setPrevView('history')
     setSelectedListing({ id: conv.listing_id, title: conv.listing_title, seller_name: conv.seller_name })
+    setNavigating(true)
     await loadConversation(conv.id)
+    setNavigating(false)
     setView('conversation')
   }
 
@@ -216,6 +226,19 @@ function App() {
         buyerPendingTotal={buyerPendingTotal}
         sellerPendingTotal={sellerPendingTotal}
       />
+      {navigating && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(255,255,255,0.7)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999,
+        }}>
+          <div style={{
+            width: 40, height: 40, border: '4px solid var(--primary)',
+            borderTopColor: 'transparent', borderRadius: '50%',
+            animation: 'spin 0.7s linear infinite',
+          }} />
+        </div>
+      )}
       <main className="main-content">
 
         {view === 'listings' && token && (
