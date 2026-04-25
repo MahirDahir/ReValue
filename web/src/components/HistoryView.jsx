@@ -1,5 +1,6 @@
 import { useAppContext } from '../AppContext'
 import { displayStatus } from '../utils/conversation'
+import FilterDropdown from './FilterDropdown'
 
 const STATUS_LABELS = {
   price_pending:    { label: 'Waiting for offer',    color: '#888',    bg: '#f5f5f5' },
@@ -9,7 +10,6 @@ const STATUS_LABELS = {
   pickup_agreed:    { label: '✅ Pickup agreed',      color: '#2e7d32', bg: '#e8f5e9' },
   contact_revealed: { label: '📱 Contact shared',    color: '#6a1b9a', bg: '#f3e5f5' },
   sold:             { label: '🏷️ Sold',              color: '#1b5e20', bg: '#e8f5e9' },
-
   cancelled:        { label: '❌ Cancelled',          color: '#b71c1c', bg: '#ffebee' },
 }
 
@@ -20,20 +20,18 @@ const DEAD_STATUSES       = ['cancelled']
 
 STATUS_LABELS['listing_removed'] = { label: '🗑️ Listing removed', color: '#b71c1c', bg: '#ffebee' }
 
-
-// Is it this user's turn to act?
 function isYourTurn(conv, userId, mode) {
   const s = conv.status
   if (mode === 'buyer') {
-    if (s === 'price_pending') return true  // seller reopened, buyer needs to offer
-    if (s === 'price_agreed') return true   // price agreed, buyer should suggest pickup
+    if (s === 'price_pending') return true
+    if (s === 'price_agreed') return true
     if (s === 'price_suggested' && conv.price_suggested_by && String(conv.price_suggested_by) !== String(userId)) return true
     if (s === 'pickup_suggested' && conv.pickup_suggested_by && String(conv.pickup_suggested_by) !== String(userId)) return true
   } else {
-    if (s === 'price_pending') return true  // buyer reopened or just started
+    if (s === 'price_pending') return true
     if (s === 'price_suggested' && conv.price_suggested_by && String(conv.price_suggested_by) !== String(userId)) return true
     if (s === 'pickup_suggested' && conv.pickup_suggested_by && String(conv.pickup_suggested_by) !== String(userId)) return true
-    if (s === 'pickup_agreed') return true  // seller should reveal contact
+    if (s === 'pickup_agreed') return true
     if (s === 'cancelled' && conv.cancelled_by && String(conv.cancelled_by) !== String(userId)) return true
   }
   return false
@@ -108,14 +106,19 @@ export default function HistoryView({ conversations, tab, setTab, onBack, onOpen
   const cancelled  = modeConvs.filter(c => !c.listing_removed && DEAD_STATUSES.includes(displayStatus(c, user?.id)))
   const removed    = modeConvs.filter(c => c.listing_removed)
 
-  const tabs = [
-    { key: 'all',        label: `All (${modeConvs.length})` },
-    { key: 'yourTurn',   label: `Your turn (${yourTurn.length})`,   highlight: yourTurn.length > 0 },
-    { key: 'waiting',    label: `Waiting (${waiting.length})` },
-    { key: 'negotiated', label: `Negotiated (${negotiated.length})` },
-    { key: 'sold',       label: `${mode === 'buyer' ? 'Purchased' : 'Sold'} (${sold.length})` },
-    { key: 'cancelled',  label: `Cancelled (${cancelled.length})` },
-    ...(removed.length > 0 ? [{ key: 'removed', label: `🗑️ Removed (${removed.length})`, highlight: removed.some(c => !c.seen_by_buyer) }] : []),
+  const soldLabel = mode === 'buyer' ? 'Purchased' : 'Sold'
+  const hasUnseen = removed.some(c => !c.seen_by_buyer)
+
+  const showOptions = [
+    { value: 'all',        label: `All (${modeConvs.length})` },
+    { value: 'yourTurn',   label: `⚡ Your turn (${yourTurn.length})` },
+    { value: 'waiting',    label: `⏳ Waiting (${waiting.length})` },
+    { value: 'negotiated', label: `📱 Negotiated (${negotiated.length})` },
+    { value: 'sold',       label: `🏷️ ${soldLabel} (${sold.length})` },
+    { value: 'cancelled',  label: `❌ Cancelled (${cancelled.length})` },
+    ...(removed.length > 0
+      ? [{ value: 'removed', label: `🗑️ Removed (${removed.length})${hasUnseen ? ' •' : ''}` }]
+      : []),
   ]
 
   const current =
@@ -132,15 +135,13 @@ export default function HistoryView({ conversations, tab, setTab, onBack, onOpen
       <button className="btn btn-ghost" onClick={onBack} style={{ marginBottom: '16px' }}>← Back</button>
       <h2>📋 {mode === 'seller' ? 'Selling' : 'Buying'}</h2>
 
-      <div className="filters" style={{ marginBottom: '20px' }}>
-        {tabs.map(t => (
-          <button
-            key={t.key}
-            className={`filter-btn ${tab === t.key ? 'active' : ''}`}
-            style={t.highlight && tab !== t.key ? { borderColor: 'var(--warning)', color: 'var(--warning)' } : {}}
-            onClick={() => setTab(t.key)}
-          >{t.label}</button>
-        ))}
+      <div className="filter-row" style={{ marginBottom: '20px' }}>
+        <FilterDropdown
+          label="Show"
+          options={showOptions}
+          value={tab}
+          onChange={setTab}
+        />
       </div>
 
       {current.length === 0 ? (

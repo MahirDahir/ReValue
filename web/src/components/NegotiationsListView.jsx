@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAppContext } from '../AppContext'
 import { displayStatus } from '../utils/conversation'
+import FilterDropdown from './FilterDropdown'
 
 const STATUS_LABELS = {
   price_pending:     'Waiting for offer',
@@ -12,7 +13,6 @@ const STATUS_LABELS = {
   sold:              '🏷️ Sold',
   cancelled:         'Cancelled',
 }
-
 
 function cancelLabel(conv, userId) {
   return 'Withdrew'
@@ -30,6 +30,13 @@ function isYourTurn(conv, userId) {
 const ACTIVE_STATUSES = ['price_pending', 'price_suggested', 'price_agreed', 'pickup_suggested', 'pickup_agreed']
 const DONE_STATUSES   = ['contact_revealed', 'sold']
 
+const SHOW_OPTIONS = [
+  { value: 'all',       label: 'All negotiations' },
+  { value: 'active',    label: '🟢 Active' },
+  { value: 'done',      label: '✅ Deal done' },
+  { value: 'cancelled', label: '❌ Cancelled' },
+]
+
 export default function NegotiationsListView({ listing, conversations, onSelect, onBack }) {
   const { user } = useAppContext()
   const [tab, setTab] = useState('all')
@@ -39,15 +46,15 @@ export default function NegotiationsListView({ listing, conversations, onSelect,
   const active    = conversations.filter(c => ACTIVE_STATUSES.includes(c.status)).sort(byNewest)
   const done      = conversations.filter(c => DONE_STATUSES.includes(displayStatus(c, user?.id))).sort(byNewest)
   const cancelled = conversations.filter(c => c.status === 'cancelled' && !DONE_STATUSES.includes(displayStatus(c, user?.id))).sort(byNewest)
+  const all       = conversations.slice().sort(byNewest)
 
-  const all = conversations.slice().sort(byNewest)
-
-  const tabs = [
-    { key: 'all',       label: `All (${all.length})` },
-    { key: 'active',    label: `Active (${active.length})` },
-    { key: 'done',      label: `Deal done (${done.length})` },
-    { key: 'cancelled', label: `Cancelled (${cancelled.length})` },
-  ]
+  const showOptions = SHOW_OPTIONS.map(o => ({
+    ...o,
+    label: o.value === 'all'       ? `All (${all.length})`
+         : o.value === 'active'    ? `🟢 Active (${active.length})`
+         : o.value === 'done'      ? `✅ Deal done (${done.length})`
+         : `❌ Cancelled (${cancelled.length})`,
+  }))
 
   const current = tab === 'all' ? all : tab === 'active' ? active : tab === 'done' ? done : cancelled
 
@@ -56,19 +63,18 @@ export default function NegotiationsListView({ listing, conversations, onSelect,
       <button className="btn btn-ghost" onClick={onBack} style={{ marginBottom: '16px' }}>← Back</button>
       <h2>🤝 Negotiations — {listing?.title}</h2>
 
-      <div className="filters" style={{ marginBottom: '20px' }}>
-        {tabs.map(t => (
-          <button
-            key={t.key}
-            className={`filter-btn ${tab === t.key ? 'active' : ''}`}
-            onClick={() => setTab(t.key)}
-          >{t.label}</button>
-        ))}
+      <div className="filter-row" style={{ marginBottom: '20px' }}>
+        <FilterDropdown
+          label="Show"
+          options={showOptions}
+          value={tab}
+          onChange={setTab}
+        />
       </div>
 
       {current.length === 0 ? (
         <p style={{ color: '#aaa', textAlign: 'center', padding: '30px 0' }}>
-          {tab === 'active' ? 'No active negotiations.' : tab === 'done' ? 'No completed deals yet.' : 'No cancelled negotiations.'}
+          {tab === 'active' ? 'No active negotiations.' : tab === 'done' ? 'No completed deals yet.' : tab === 'cancelled' ? 'No cancelled negotiations.' : 'No negotiations yet.'}
         </p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
