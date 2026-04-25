@@ -10,27 +10,33 @@ export default function Header({ toggleMode, logout, onNegotiations, buyerPendin
 
   return (
     <header className="header">
-      <h1 className="logo">♻️ ReValue</h1>
+      <h1 className="logo" onClick={() => token && setView('listings')} style={{ cursor: token ? 'pointer' : 'default' }}>
+        ♻️ ReValue
+      </h1>
+
       <div className="nav-buttons">
         {token ? (
           <>
-            <button
-              className="user-info"
-              onClick={() => setView('profile')}
-              style={{ cursor: 'pointer', border: '1.5px solid var(--primary)', background: 'var(--primary-light)', borderRadius: '20px', padding: '4px 10px' }}
-              title="My Profile"
-            >
+            <button className="user-info" onClick={() => setView('profile')} title="My Profile">
               <span className="user-name">{user?.name || '...'}</span>
             </button>
-            <button className={`mode-toggle mode-${mode}`} onClick={toggleMode}>
+
+            <button className="mode-toggle" onClick={toggleMode}>
               {mode === 'buyer' ? '🛒 Buy' : '🏪 Sell'}
             </button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setView('listings')}>Browse</button>
-            <button className="btn btn-ghost btn-sm btn-with-badge" onClick={onNegotiations}>
+
+            <button className="btn btn-ghost btn-sm nav-browse" onClick={() => setView('listings')}>
+              Browse
+            </button>
+
+            <button className="btn btn-ghost btn-sm btn-with-badge" onClick={onNegotiations} title="Negotiations">
               🤝
               {pendingTotal > 0 && <span className="badge">{pendingTotal}</span>}
             </button>
-            <button className="btn btn-ghost btn-sm" onClick={handleLogout}>Logout</button>
+
+            <button className="btn btn-ghost btn-sm nav-logout" onClick={handleLogout}>
+              Logout
+            </button>
           </>
         ) : (
           <>
