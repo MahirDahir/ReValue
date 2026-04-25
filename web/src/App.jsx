@@ -35,7 +35,7 @@ function App() {
     loadListings, loadSellerUnreadCounts, loadBuyerPendingCounts,
     setSellerCounts, setBuyerPendingCounts,
     handleFilter,
-    removeListing, changeListingStatus, patchListingStatus,
+    removeListing, patchListingStatus,
   } = useListings()
   const {
     conversation, contact, listingConversations, myConversations, contactsRevealed,
@@ -128,10 +128,6 @@ function App() {
     catch (err) { setError(err.response?.data?.detail || 'Failed to delete listing') }
   }
 
-  const handleStatusChange = async (listingId, newStatus) => {
-    try { await changeListingStatus(listingId, newStatus) }
-    catch (err) { setError(err.response?.data?.detail || 'Failed to update status') }
-  }
 
   // Buyer: open a negotiation for a listing
   const openNegotiate = async (listing) => {
@@ -258,7 +254,6 @@ function App() {
             onEdit={(listing) => { setSelectedListing(listing); setView('edit') }}
             onDelete={handleDeleteListing}
             onForceDelete={handleForceDeleteListing}
-            onStatusChange={handleStatusChange}
             onMarkSoldToBuyer={markSoldToBuyer}
           />
         )}

@@ -22,11 +22,6 @@ export function updateListing(id, body) {
   return client.put(`/listings/${id}`, body)
 }
 
-export function updateListingStatus(id, newStatus) {
-  const formData = new FormData()
-  formData.append('new_status', newStatus)
-  return client.put(`/listings/${id}/status`, formData)
-}
 
 export function deleteListing(id, force = false) {
   return client.delete(`/listings/${id}`, { params: force ? { force: true } : {} })

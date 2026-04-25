@@ -28,7 +28,6 @@ const defaultProps = {
   onConversations: vi.fn(),
   onEdit: vi.fn(),
   onDelete: vi.fn(),
-  onStatusChange: vi.fn(),
   onSendPriceSuggestion: vi.fn(),
 }
 
