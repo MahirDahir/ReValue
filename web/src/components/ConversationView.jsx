@@ -166,8 +166,10 @@ export default function ConversationView({ conversation, listing, contact, onSta
     )
   }
 
-  const cancelled   = s === 'cancelled'
-  const iCancelled  = cancelled && String(conversation.cancelled_by) === String(user?.id)
+  const cancelled      = s === 'cancelled'
+  const iCancelled     = cancelled && String(conversation.cancelled_by) === String(user?.id)
+  const soldToOther    = cancelled && conversation.events?.some(e => e.value === 'Item sold to another buyer')
+  const listingSold    = conversation.listing_status === 'sold'
   const validSlots  = getValidPickupSlots(conversation)
 
   // Who suggested the current price / pickup (for turn logic)
@@ -197,8 +199,15 @@ export default function ConversationView({ conversation, listing, contact, onSta
         ))}
       </div>
 
-      {/* Sold banner */}
-      {conversation.listing_status === 'sold' && !cancelled && s !== 'contact_revealed' && (
+      {/* Sold to another buyer banner */}
+      {soldToOther && (
+        <div style={{ padding: '12px 14px', background: '#ffebee', border: '1px solid #ef9a9a', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', color: '#b71c1c' }}>
+          🏷️ This item was <strong>sold to another buyer</strong>. Your negotiation has been cancelled.
+        </div>
+      )}
+
+      {/* Active but listing sold banner */}
+      {listingSold && !cancelled && s !== 'contact_revealed' && (
         <div style={{ padding: '12px 14px', background: '#fff3e0', border: '1px solid #ffb74d', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', color: '#e65100' }}>
           ⚠️ This item has been marked as <strong>sold</strong>. The seller may have accepted another buyer's offer.
         </div>
@@ -208,8 +217,8 @@ export default function ConversationView({ conversation, listing, contact, onSta
       <div style={{ padding: '14px 16px', background: '#f5f5f5', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', color: '#555' }}>
         {cancelled ? (
           <>
-            ❌ Cancelled
-            {conversation.cancelled_by && (
+            ❌ {soldToOther ? 'Cancelled — sold to another buyer' : 'Cancelled'}
+            {!soldToOther && conversation.cancelled_by && (
               <div style={{ marginTop: '4px', fontSize: '13px' }}>
                 {iCancelled ? 'You withdrew from this negotiation.' : `${isBuyer ? 'Seller' : 'Buyer'} withdrew from this negotiation.`}
               </div>
@@ -416,6 +425,13 @@ export default function ConversationView({ conversation, listing, contact, onSta
         )}
 
       </>}
+
+      {/* Info message for sold-to-other cancelled conversations */}
+      {cancelled && soldToOther && isBuyer && (
+        <div style={{ marginTop: '12px', fontSize: '13px', color: '#888', textAlign: 'center' }}>
+          This negotiation was closed automatically when the seller accepted another offer.
+        </div>
+      )}
 
       {/* ── EVENT TIMELINE (bottom) ── */}
       <Timeline events={conversation.events} />
