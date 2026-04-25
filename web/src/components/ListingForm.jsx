@@ -24,22 +24,63 @@ function PickupSlotEditor({ slots, onChange }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
       {ALL_DAYS.map(day => {
         const active = activeSet.has(day)
         const slot   = slots.find(s => s.day === day) || {}
+        const label  = day.charAt(0).toUpperCase() + day.slice(1)
         return (
-          <div key={day} style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '100px', cursor: 'pointer' }}>
-              <input type="checkbox" checked={active} onChange={() => toggleDay(day)} />
-              {day.charAt(0).toUpperCase() + day.slice(1)}
-            </label>
+          <div
+            key={day}
+            onClick={() => !active && toggleDay(day)}
+            style={{
+              border: `1.5px solid ${active ? 'var(--primary)' : 'var(--border)'}`,
+              borderRadius: 'var(--radius-sm)',
+              background: active ? 'var(--primary-light)' : 'var(--surface)',
+              padding: '10px 14px',
+              cursor: active ? 'default' : 'pointer',
+              transition: 'var(--transition)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px', color: active ? 'var(--primary-text)' : 'var(--text-secondary)' }}>
+                <input
+                  type="checkbox"
+                  checked={active}
+                  onChange={() => toggleDay(day)}
+                  onClick={e => e.stopPropagation()}
+                  style={{ accentColor: 'var(--primary)', width: '16px', height: '16px' }}
+                />
+                {label}
+              </label>
+              {active && (
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  {slot.start} – {slot.end}
+                </span>
+              )}
+            </div>
+
             {active && (
-              <>
-                <input type="time" value={slot.start} onChange={e => updateTime(day, 'start', e.target.value)} style={{ width: '110px' }} />
-                <span style={{ color: '#888' }}>to</span>
-                <input type="time" value={slot.end} onChange={e => updateTime(day, 'end', e.target.value)} style={{ width: '110px' }} />
-              </>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }} onClick={e => e.stopPropagation()}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>From</div>
+                  <input
+                    type="time"
+                    value={slot.start}
+                    onChange={e => updateTime(day, 'start', e.target.value)}
+                    style={{ width: '100%', padding: '7px 10px', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '14px', background: 'var(--surface)' }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>To</div>
+                  <input
+                    type="time"
+                    value={slot.end}
+                    onChange={e => updateTime(day, 'end', e.target.value)}
+                    style={{ width: '100%', padding: '7px 10px', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '14px', background: 'var(--surface)' }}
+                  />
+                </div>
+              </div>
             )}
           </div>
         )
