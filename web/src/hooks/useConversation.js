@@ -47,6 +47,7 @@ export function useConversation() {
       const res = await convApi.getMyListingConversation(listingId)
       if (res.data) setConversation(res.data)
       setContact(null)
+      return res.data
     } catch { /* no existing conversation is fine */ }
   }
 

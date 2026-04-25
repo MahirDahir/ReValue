@@ -131,11 +131,11 @@ function App() {
   }
 
   // Buyer: open a negotiation for a listing
-  const openNegotiate = (listing) => {
+  const openNegotiate = async (listing) => {
     setPrevView('listings')
     setSelectedListing(listing)
     resetConversation()
-    loadMyListingConversation(listing.id)
+    await loadMyListingConversation(listing.id)
     setView('conversation')
   }
 
