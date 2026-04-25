@@ -3,12 +3,14 @@ import { useAppContext } from '../AppContext'
 import { useAuth } from '../hooks/useAuth'
 
 export default function RegisterPage() {
-  const { setError, setView } = useAppContext()
+  const { setView } = useAppContext()
   const { register } = useAuth()
   const [form, setForm] = useState({ name: '', phone: '', password: '' })
+  const [error, setError] = useState('')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setError('')
     try {
       await register(form.name, form.phone, form.password)
     } catch (err) {
@@ -31,7 +33,7 @@ export default function RegisterPage() {
             <input
               type="text"
               value={form.name}
-              onChange={e => setForm({ ...form, name: e.target.value })}
+              onChange={e => { setForm({ ...form, name: e.target.value }); setError('') }}
               required
               placeholder="Your name"
               autoFocus
@@ -42,7 +44,7 @@ export default function RegisterPage() {
             <input
               type="tel"
               value={form.phone}
-              onChange={e => setForm({ ...form, phone: e.target.value })}
+              onChange={e => { setForm({ ...form, phone: e.target.value }); setError('') }}
               required
               placeholder="+1234567890"
             />
@@ -52,11 +54,12 @@ export default function RegisterPage() {
             <input
               type="password"
               value={form.password}
-              onChange={e => setForm({ ...form, password: e.target.value })}
+              onChange={e => { setForm({ ...form, password: e.target.value }); setError('') }}
               required
               minLength="6"
             />
           </div>
+          {error && <p style={{ color: '#c00', fontSize: '13px', marginBottom: '8px' }}>{error}</p>}
           <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Create Account</button>
         </form>
         <p style={{ marginTop: '16px', textAlign: 'center', color: '#888' }}>
