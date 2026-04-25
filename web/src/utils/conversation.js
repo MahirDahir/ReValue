@@ -6,12 +6,12 @@ export function displayStatus(conv, userId) {
     conv.listing_status === 'sold' &&
     (String(conv.actual_buyer_id) === String(userId) || String(conv.seller_id) === String(userId))
   ) return 'sold'
-  // Seller-cancelled conversations due to item being sold (cancelled by seller when listing is sold)
+  // Seller-cancelled conversations due to item being sold
   if (
     conv.status === 'cancelled' &&
     conv.listing_status === 'sold' &&
     conv.cancelled_by &&
     String(conv.cancelled_by) === String(conv.seller_id)
-  ) return 'sold_to_another'
+  ) return 'sold'
   return conv.status
 }

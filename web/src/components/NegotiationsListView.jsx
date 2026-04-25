@@ -10,7 +10,6 @@ const STATUS_LABELS = {
   pickup_agreed:     '✅ Pickup agreed',
   contact_revealed:  '📱 Contact shared',
   sold:              '🏷️ Sold',
-  sold_to_another:   '🏷️ Sold',
   cancelled:         'Cancelled',
 }
 
@@ -29,7 +28,7 @@ function isYourTurn(conv, userId) {
 }
 
 const ACTIVE_STATUSES = ['price_pending', 'price_suggested', 'price_agreed', 'pickup_suggested', 'pickup_agreed']
-const DONE_STATUSES   = ['contact_revealed', 'sold', 'sold_to_another']
+const DONE_STATUSES   = ['contact_revealed', 'sold']
 
 export default function NegotiationsListView({ listing, conversations, onSelect, onBack }) {
   const { user } = useAppContext()
