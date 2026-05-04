@@ -112,6 +112,7 @@ export default function ListingForm({ listing, onDone, onCancel }) {
   const { setView, setError, setSuccess } = useAppContext()
   const [form, setForm] = useState(() => initialForm(listing))
   const [images, setImages] = useState([])
+  const [imageError, setImageError] = useState('')
 
   const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }))
 
@@ -144,6 +145,7 @@ export default function ListingForm({ listing, onDone, onCancel }) {
             formData.append(k, v)
           }
         })
+        if (imageError) return
         images.forEach(img => formData.append('images', img))
         await listingsApi.createListing(formData)
         setSuccess('Listing created!')
@@ -224,7 +226,28 @@ export default function ListingForm({ listing, onDone, onCancel }) {
         {!isEdit && (
           <div className="form-group">
             <label>Images</label>
-            <input type="file" multiple accept="image/*" onChange={e => setImages(Array.from(e.target.files))} />
+            <input
+              type="file"
+              multiple
+              accept=".jpg,.jpeg,.png,.webp"
+              onChange={e => {
+                const ALLOWED = ['jpg', 'jpeg', 'png', 'webp']
+                const files = Array.from(e.target.files)
+                const bad = files.filter(f => {
+                  const ext = f.name.split('.').pop()
+                  return !ALLOWED.includes(ext.toLowerCase())
+                })
+                if (bad.length > 0) {
+                  setImageError(`Unsupported file type: ${bad.map(f => f.name).join(', ')}. Allowed: JPG, JPEG, PNG, WEBP`)
+                  setImages([])
+                  e.target.value = ''
+                } else {
+                  setImageError('')
+                  setImages(files)
+                }
+              }}
+            />
+            {imageError && <p style={{ color: 'var(--error, #e53935)', fontSize: '13px', marginTop: '4px' }}>{imageError}</p>}
           </div>
         )}
         <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: isEdit ? '8px' : '0' }}>

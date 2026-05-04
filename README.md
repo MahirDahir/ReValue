@@ -6,7 +6,7 @@ A marketplace for turning waste into money — sellers post waste material (plas
 
 - **Phone-based Auth** — register and login with phone number + password; inline error on failure
 - **Buyer / Seller Toggle** — switch modes with one click; green theme for buyers, blue for sellers
-- **Listings** — create with photo upload, Leaflet map picker, waste category, quantity, optional price, pickup availability slots
+- **Listings** — create with photo upload (JPG/PNG/WEBP, max 5 MB), Leaflet map picker, waste category, quantity, optional price, pickup availability slots
 - **Location** — reverse-geocoded address display + OpenStreetMap embed on each card (no API key needed)
 - **Structured Negotiation** — price offer → pickup time → contact reveal (no free-text chat)
 - **Full Event Timeline** — every negotiation step logged with actor name and timestamp; full history visible in the conversation view
