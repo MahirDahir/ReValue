@@ -37,23 +37,8 @@ if settings.SENTRY_DSN:
         environment="development" if settings.DEBUG else "production",
     )
 
-def _check_single_worker():
-    """SSE uses an in-memory asyncio.Queue — multi-worker deployments silently drop events."""
-    import multiprocessing
-    worker_count = int(os.environ.get("WEB_CONCURRENCY", "1"))
-    cpu_count = multiprocessing.cpu_count()
-    # WEB_CONCURRENCY=0 is sometimes used to mean "auto" (= cpu_count * 2 + 1)
-    effective = cpu_count * 2 + 1 if worker_count == 0 else worker_count
-    if effective > 1:
-        raise RuntimeError(
-            f"ReValue requires exactly 1 uvicorn worker (SSE uses in-memory queue). "
-            f"Got WEB_CONCURRENCY={worker_count}. Set WEB_CONCURRENCY=1."
-        )
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    _check_single_worker()
     init_db()
     log.info("startup", app=settings.APP_NAME)
     yield

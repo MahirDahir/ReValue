@@ -1,25 +1,27 @@
-import asyncio
-from collections import defaultdict
+import json
+import redis
+import os
 
-# user_id (str) -> set of asyncio.Queue
-_subscribers: dict[str, set] = defaultdict(set)
-
-
-def subscribe(user_id: str) -> asyncio.Queue:
-    q = asyncio.Queue(maxsize=50)
-    _subscribers[str(user_id)].add(q)
-    return q
+# Sync client — used by service layer (synchronous FastAPI routes) to publish events
+_redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+_client: redis.Redis | None = None
 
 
-def unsubscribe(user_id: str, q: asyncio.Queue):
-    _subscribers[str(user_id)].discard(q)
-    if not _subscribers[str(user_id)]:
-        del _subscribers[str(user_id)]
+def _get_client() -> redis.Redis:
+    global _client
+    if _client is None:
+        _client = redis.from_url(_redis_url, decode_responses=True)
+    return _client
+
+
+def _channel(user_id: str) -> str:
+    return f"sse:{user_id}"
 
 
 def notify(user_id: str, event: dict):
-    for q in list(_subscribers.get(str(user_id), [])):
-        try:
-            q.put_nowait(event)
-        except asyncio.QueueFull:
-            pass  # slow consumer — drop the event, client will re-sync on reconnect
+    """Publish an event to a user's Redis channel. Called from sync service layer."""
+    try:
+        _get_client().publish(_channel(str(user_id)), json.dumps(event))
+    except redis.RedisError:
+        # Redis unavailable — degrade gracefully, client will re-sync on next HTTP request
+        pass

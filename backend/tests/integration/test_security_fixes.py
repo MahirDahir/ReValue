@@ -44,25 +44,70 @@ def test_login_wrong_phone_and_wrong_password_same_message(client):
     assert wrong_phone.json()["detail"] == wrong_pass.json()["detail"]
 
 
-# ── Fix 2: Single-worker enforcement ─────────────────────────────────────────
+# ── Fix 2: Redis Pub/Sub SSE bus ─────────────────────────────────────────────
 
-def test_multi_worker_startup_raises():
-    """Setting WEB_CONCURRENCY > 1 must raise RuntimeError at startup."""
-    os.environ["WEB_CONCURRENCY"] = "2"
+def test_sse_bus_notify_does_not_raise_when_redis_unavailable():
+    """notify() must degrade gracefully when Redis is unreachable — never crash the API."""
+    import os
+    old = os.environ.get("REDIS_URL")
+    os.environ["REDIS_URL"] = "redis://127.0.0.1:19999/0"  # nothing listening here
+
+    # Force re-import with broken URL
+    import importlib
+    import services.sse_bus as bus
+    bus._client = None  # reset cached client
+    bus._redis_url = "redis://127.0.0.1:19999/0"
+
     try:
-        # Re-import to trigger lifespan / _check_single_worker
-        from main import _check_single_worker
-        with pytest.raises(RuntimeError, match="WEB_CONCURRENCY"):
-            _check_single_worker()
+        bus.notify("some-user-id", {"kind": "test", "data": {}})  # must not raise
     finally:
-        os.environ.pop("WEB_CONCURRENCY", None)
+        bus._client = None
+        bus._redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+        if old is not None:
+            os.environ["REDIS_URL"] = old
+        else:
+            os.environ.pop("REDIS_URL", None)
 
 
-def test_single_worker_does_not_raise():
-    """WEB_CONCURRENCY=1 (default) must not raise."""
-    os.environ.pop("WEB_CONCURRENCY", None)
-    from main import _check_single_worker
-    _check_single_worker()  # should not raise
+def test_sse_bus_publish_and_receive():
+    """notify() must publish a message that a subscriber can read from Redis."""
+    import redis as sync_redis
+    import json
+    import services.sse_bus as bus
+
+    redis_url = "redis://localhost:6379/0"
+
+    # Point the bus at the local Redis (tests run outside Docker)
+    bus._client = None
+    bus._redis_url = redis_url
+
+    r = sync_redis.from_url(redis_url, decode_responses=True)
+    pubsub = r.pubsub()
+    pubsub.subscribe("sse:test-user-99")
+
+    import time
+    time.sleep(0.1)  # let subscribe complete
+
+    bus.notify("test-user-99", {"kind": "test", "data": "hello"})
+
+    time.sleep(0.1)
+
+    # Drain messages — skip subscribe confirmation, find the actual message
+    actual = None
+    for _ in range(10):
+        m = pubsub.get_message()
+        if m and m["type"] == "message":
+            actual = m
+            break
+
+    pubsub.unsubscribe()
+    r.close()
+    bus._client = None  # reset so other tests aren't affected
+
+    assert actual is not None, "Expected a message event from Redis pub/sub"
+    payload = json.loads(actual["data"])
+    assert payload["kind"] == "test"
+    assert payload["data"] == "hello"
 
 
 # ── Fix 3: Mark sold race condition — idempotency ─────────────────────────────
