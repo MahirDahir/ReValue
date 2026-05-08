@@ -16,9 +16,15 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            await github.rest.pulls.requestReviewers({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.payload.pull_request.number,
-              reviewers: ['copilot-pull-request-reviewer'],
-            });
+            try {
+              await github.rest.pulls.requestReviewers({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                reviewers: ['copilot-pull-request-reviewer'],
+              });
+            } catch (err) {
+              // copilot-pull-request-reviewer requires GitHub Copilot Business/Enterprise.
+              // On personal repos this returns 422 — log and continue without failing CI.
+              core.warning(`Could not request Copilot review: ${err.message}`);
+            }
