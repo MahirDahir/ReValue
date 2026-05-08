@@ -61,5 +61,5 @@ done
 # Apply all pending migrations
 alembic upgrade head
 
-# SSE uses Redis Pub/Sub — multiple workers are safe
-exec uvicorn main:app --host 0.0.0.0 --port "${PORT:-8000}" --workers "${WEB_CONCURRENCY:-1}"
+# SSE uses Redis Pub/Sub — multiple workers are safe (default 2; override via WEB_CONCURRENCY)
+exec uvicorn main:app --host 0.0.0.0 --port "${PORT:-8000}" --workers "${WEB_CONCURRENCY:-2}"

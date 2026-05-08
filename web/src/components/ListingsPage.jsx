@@ -85,7 +85,7 @@ export default function ListingsPage({
                 key={listing.id}
                 listing={listing}
                 listingUnreadCount={listingUnreadCounts[listing.id] || 0}
-                buyerPendingCount={buyerPendingCounts?.[listing.id] || 0}
+                buyerPendingCount={buyerPendingCounts?.[listing.id]?.your_turn ?? buyerPendingCounts?.[listing.id] ?? 0}
                 getLocationDisplay={getLocationDisplay}
                 onNegotiate={onNegotiate}
                 onConversations={onConversations}

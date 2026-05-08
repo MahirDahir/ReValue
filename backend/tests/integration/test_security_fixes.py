@@ -207,3 +207,149 @@ def test_seller_cannot_set_status_to_sold_via_update(client, seller_headers, sam
     # either way the listing must NOT become sold
     listing = client.get(f"/api/listings/{sample_listing['id']}").json()
     assert listing["status"] != "sold"
+
+
+# ── Fix 5: PRICE_AGREED missing from seller's your_turn badge ─────────────────
+
+def _reach_price_agreed(client, seller_headers, buyer_headers):
+    """Helper: drive a conversation to price_agreed (buyer accepted seller's price offer)."""
+    listing = client.post(
+        "/api/listings/",
+        data={
+            "title": "Badge Test Listing",
+            "waste_category": "metal",
+            "quantity": "5",
+            "unit": "kg",
+            "latitude": "32.0853",
+            "longitude": "34.7818",
+        },
+        headers=seller_headers,
+    ).json()
+    listing_id = listing["id"]
+
+    # Buyer starts negotiation
+    conv = client.post(
+        "/api/conversations/start",
+        json={"listing_id": listing_id, "price": 20.0},
+        headers=buyer_headers,
+    ).json()
+    conv_id = conv["id"]
+
+    # Seller accepts price → status becomes PRICE_AGREED
+    client.post(
+        f"/api/conversations/{conv_id}/action",
+        json={"action": "accept_price"},
+        headers=seller_headers,
+    )
+    return listing_id, conv_id
+
+
+def test_seller_your_turn_badge_set_when_price_agreed(client, seller_headers, buyer_headers):
+    """Seller must have your_turn=1 for a listing when the conversation reaches PRICE_AGREED.
+
+    Regression: PRICE_AGREED was missing from the seller's your_turn condition in
+    get_pending_counts(), so the item-level badge never appeared even though the header
+    badge (unseen) was correctly set.
+    """
+    listing_id, _ = _reach_price_agreed(client, seller_headers, buyer_headers)
+
+    counts = client.get("/api/conversations/pending-counts", headers=seller_headers).json()
+
+    assert listing_id in counts, "listing missing from pending counts after PRICE_AGREED"
+    assert counts[listing_id]["your_turn"] >= 1, (
+        "seller your_turn should be >=1 when conversation is PRICE_AGREED "
+        "(seller must suggest pickup next)"
+    )
+
+
+# ── Fix 6: Buyer badge correctness — your_turn not gated on seen_by_buyer ─────
+
+def _make_listing_and_start(client, seller_headers, buyer_headers, price=20.0):
+    listing = client.post(
+        "/api/listings/",
+        data={
+            "title": "Buyer Badge Listing",
+            "waste_category": "glass",
+            "quantity": "3",
+            "unit": "kg",
+            "latitude": "32.0853",
+            "longitude": "34.7818",
+        },
+        headers=seller_headers,
+    ).json()
+    conv = client.post(
+        "/api/conversations/start",
+        json={"listing_id": listing["id"], "price": price},
+        headers=buyer_headers,
+    ).json()
+    return listing["id"], conv["id"]
+
+
+def test_buyer_your_turn_zero_while_waiting_for_seller(client, seller_headers, buyer_headers):
+    """Buyer's your_turn must be 0 while the ball is in the seller's court.
+
+    After buyer suggests a price, it's the seller's turn. The buyer has no action
+    to take, so your_turn should be 0 even though the conversation exists.
+    """
+    listing_id, conv_id = _make_listing_and_start(client, seller_headers, buyer_headers)
+
+    counts = client.get("/api/conversations/buyer-pending-counts", headers=buyer_headers).json()
+    # Listing may not appear at all, or if it does your_turn must be 0
+    your_turn = counts.get(listing_id, {}).get("your_turn", 0)
+    assert your_turn == 0, (
+        "buyer your_turn should be 0 when waiting for seller to respond to price suggestion"
+    )
+
+
+def test_buyer_your_turn_badge_set_after_accepting_sellers_counter_price(client, seller_headers, buyer_headers):
+    """Buyer must have your_turn=1 after accepting the seller's counter-offer (PRICE_AGREED).
+
+    Regression: buyer accepted seller's counter, becoming the next actor (suggest pickup),
+    but seen_by_buyer was left True so unseen=0 and the badge never appeared.
+    """
+    listing_id, conv_id = _make_listing_and_start(client, seller_headers, buyer_headers)
+
+    def action(headers, act, value=None):
+        return client.post(
+            f"/api/conversations/{conv_id}/action",
+            json={"action": act, "value": value},
+            headers=headers,
+        )
+
+    # Seller declines and counter-offers
+    action(seller_headers, "decline_price")
+    action(seller_headers, "suggest_price", "15.0")
+
+    # Buyer accepts seller's counter → PRICE_AGREED, buyer must now suggest pickup
+    action(buyer_headers, "accept_price")
+
+    counts = client.get("/api/conversations/buyer-pending-counts", headers=buyer_headers).json()
+    assert listing_id in counts, "listing missing from buyer counts after accepting counter-offer"
+    assert counts[listing_id]["your_turn"] >= 1, (
+        "buyer your_turn should be >=1 after accepting seller's counter (must suggest pickup)"
+    )
+
+
+def test_buyer_your_turn_badge_set_after_seller_reopens(client, seller_headers, buyer_headers):
+    """Buyer must have your_turn=1 when seller reopens a cancelled conversation.
+
+    Regression: after reopen seen_by_buyer was not reset to False when buyer is next actor.
+    """
+    listing_id, conv_id = _make_listing_and_start(client, seller_headers, buyer_headers)
+
+    def action(headers, act, value=None):
+        return client.post(
+            f"/api/conversations/{conv_id}/action",
+            json={"action": act, "value": value},
+            headers=headers,
+        )
+
+    # Seller cancels then reopens (seller is canceller so seller can reopen)
+    action(seller_headers, "cancel")
+    action(seller_headers, "reopen")
+
+    counts = client.get("/api/conversations/buyer-pending-counts", headers=buyer_headers).json()
+    assert listing_id in counts, "listing missing from buyer counts after reopen"
+    assert counts[listing_id]["your_turn"] >= 1, (
+        "buyer your_turn should be >=1 after reopen — buyer must re-suggest price"
+    )

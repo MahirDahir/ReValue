@@ -1,5 +1,6 @@
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy import text
+from sqlalchemy.orm import Session, joinedload
 from uuid import UUID
 
 from models.postgres.conversation import Conversation, ConversationStatus
@@ -8,6 +9,15 @@ from models.postgres.listing import Listing, ListingStatus
 from models.postgres.user import User
 from schemas.conversation import ConversationAction
 from services.sse_bus import notify as _notify
+
+
+def _load_conversations_eager(query):
+    """Apply joinedload for listing/buyer/seller so _to_dict makes zero extra queries."""
+    return query.options(
+        joinedload(Conversation.listing),
+        joinedload(Conversation.buyer),
+        joinedload(Conversation.seller),
+    )
 
 
 VALID_ACTIONS = {
@@ -51,9 +61,13 @@ def _events(db: Session, conv_id: UUID) -> list:
 
 
 def _to_dict(conv: Conversation, db: Session, include_events: bool = True) -> dict:
-    listing = db.query(Listing).filter(Listing.id == conv.listing_id).first()
-    buyer   = db.query(User).filter(User.id == conv.buyer_id).first()
-    seller  = db.query(User).filter(User.id == conv.seller_id).first()
+    # Access relationships — SQLAlchemy lazy-loads on first access if not already eager-loaded.
+    # For list endpoints we apply _load_conversations_eager() so these are free (already in
+    # the identity map). For single-conv fetches the lazy load costs one query each, which
+    # is acceptable (not a loop).
+    listing = conv.listing
+    buyer   = conv.buyer
+    seller  = conv.seller
     return {
         "id":                    str(conv.id),
         "listing_id":            str(conv.listing_id),
@@ -189,9 +203,11 @@ def mark_seen(db: Session, conv_id: UUID, current_user: User) -> dict:
 
 
 def get_my_conversations(db: Session, current_user: User) -> list:
-    convs = db.query(Conversation).filter(
-        (Conversation.buyer_id == current_user.id) |
-        (Conversation.seller_id == current_user.id)
+    convs = _load_conversations_eager(
+        db.query(Conversation).filter(
+            (Conversation.buyer_id == current_user.id) |
+            (Conversation.seller_id == current_user.id)
+        )
     ).all()
     return [_to_dict(c, db) for c in convs]
 
@@ -210,7 +226,9 @@ def get_listing_conversations(db: Session, listing_id: UUID, current_user: User)
         raise HTTPException(status_code=404, detail="Listing not found")
     if listing.seller_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the seller can view all conversations")
-    convs = db.query(Conversation).filter(Conversation.listing_id == listing_id).all()
+    convs = _load_conversations_eager(
+        db.query(Conversation).filter(Conversation.listing_id == listing_id)
+    ).all()
     return [_to_dict(c, db) for c in convs]
 
 
@@ -262,9 +280,12 @@ def do_action(db: Session, conv_id: UUID, current_user: User, action_data: Conve
         conv.agreed_price = conv.suggested_price
         conv.status       = ConversationStatus.PRICE_AGREED
         if is_buyer:
+            # Notify seller of the acceptance, and buyer is next actor (must suggest pickup)
             conv.seen_by_seller = False
+            conv.seen_by_buyer  = False
         else:
-            conv.seen_by_buyer = False
+            # Notify buyer of the acceptance, and buyer is next actor (must suggest pickup)
+            conv.seen_by_buyer  = False
         _log(db, conv, current_user, "price_accepted", str(conv.agreed_price))
 
     elif action == "decline_price":
@@ -342,13 +363,16 @@ def do_action(db: Session, conv_id: UUID, current_user: User, action_data: Conve
         listing = db.query(Listing).filter(Listing.id == conv.listing_id).first()
         if listing and listing.status != ListingStatus.AVAILABLE:
             raise HTTPException(status_code=400, detail="Cannot reopen — listing is no longer available")
-        conv.status          = ConversationStatus.PRICE_PENDING
-        conv.cancelled_by    = None
+        conv.status             = ConversationStatus.PRICE_PENDING
+        conv.cancelled_by       = None
         conv.suggested_price    = None
         conv.price_suggested_by = None
         if is_buyer:
+            # Notify seller, and buyer is next actor (must re-suggest price)
             conv.seen_by_seller = False
+            conv.seen_by_buyer  = False
         else:
+            # Notify buyer, and buyer is next actor (must re-suggest price)
             conv.seen_by_buyer = False
         _log(db, conv, current_user, "reopened", None)
 
@@ -361,8 +385,10 @@ def do_action(db: Session, conv_id: UUID, current_user: User, action_data: Conve
 
 def _push_conv_update(db: Session, conv: Conversation, conv_dict: dict):
     """Push SSE updates to both parties after any conversation state change."""
-    seller = db.query(User).filter(User.id == conv.seller_id).first()
-    buyer  = db.query(User).filter(User.id == conv.buyer_id).first()
+    # Use relationship attributes — they're in the identity map after any prior access.
+    # Fall back to a query only if the relationship isn't loaded (e.g. after expire_all).
+    seller = conv.seller or db.query(User).filter(User.id == conv.seller_id).first()
+    buyer  = conv.buyer  or db.query(User).filter(User.id == conv.buyer_id).first()
     if seller:
         seller_counts = get_pending_counts(db, seller)
         _notify(str(conv.seller_id), {"kind": "seller_counts", "data": seller_counts})
@@ -374,73 +400,86 @@ def _push_conv_update(db: Session, conv: Conversation, conv_dict: dict):
 
 
 def get_pending_counts(db: Session, current_user: User) -> dict:
-    convs = db.query(Conversation).filter(
-        Conversation.seller_id == current_user.id
-    ).all()
-
+    # Fetch only the columns needed for badge logic — no ORM hydration of relationships.
     # unseen = notification badge (disappears once opened)
     # your_turn = persistent action indicator (stays until seller acts)
+    rows = db.execute(
+        text("""
+            SELECT listing_id, status, price_suggested_by, pickup_suggested_by, seen_by_seller
+            FROM conversations
+            WHERE seller_id = :uid
+        """),
+        {"uid": current_user.id},
+    ).fetchall()
+
+    uid = str(current_user.id)
     unseen_counts    = {}
     your_turn_counts = {}
 
-    for conv in convs:
-        lid = str(conv.listing_id)
-        s   = conv.status
-        uid = str(current_user.id)
+    for row in rows:
+        lid = str(row.listing_id) if row.listing_id else None
+        if lid is None:
+            continue
+        s = row.status
 
         your_turn = (
             s == ConversationStatus.PRICE_PENDING or
-            (s == ConversationStatus.PRICE_SUGGESTED and conv.price_suggested_by and str(conv.price_suggested_by) != uid) or
-            (s == ConversationStatus.PICKUP_SUGGESTED and conv.pickup_suggested_by and str(conv.pickup_suggested_by) != uid) or
+            s == ConversationStatus.PRICE_AGREED or
+            (s == ConversationStatus.PRICE_SUGGESTED and row.price_suggested_by and str(row.price_suggested_by) != uid) or
+            (s == ConversationStatus.PICKUP_SUGGESTED and row.pickup_suggested_by and str(row.pickup_suggested_by) != uid) or
             s == ConversationStatus.PICKUP_AGREED
         )
-        # Unseen: notify seller of any update they haven't viewed yet (including cancellations)
-        unseen = not conv.seen_by_seller and s != ConversationStatus.CONTACT_REVEALED
+        unseen = not row.seen_by_seller and s != ConversationStatus.CONTACT_REVEALED
 
         if your_turn:
             your_turn_counts[lid] = your_turn_counts.get(lid, 0) + 1
         if unseen:
             unseen_counts[lid] = unseen_counts.get(lid, 0) + 1
 
-    # Return combined structure: {listing_id: {unseen, your_turn}}
     all_listings = set(list(unseen_counts.keys()) + list(your_turn_counts.keys()))
     return {lid: {"unseen": unseen_counts.get(lid, 0), "your_turn": your_turn_counts.get(lid, 0)} for lid in all_listings}
 
 
 def get_buyer_pending_counts(db: Session, current_user: User) -> dict:
-    convs = db.query(Conversation).filter(
-        Conversation.buyer_id == current_user.id
-    ).all()
+    # Fetch only the columns needed for badge logic — no ORM hydration of relationships.
+    # your_turn = persistent action indicator (not gated on seen_by_buyer)
+    # unseen    = notification badge (cleared once the buyer views the conversation)
+    rows = db.execute(
+        text("""
+            SELECT listing_id, status, price_suggested_by, pickup_suggested_by, seen_by_buyer
+            FROM conversations
+            WHERE buyer_id = :uid
+        """),
+        {"uid": current_user.id},
+    ).fetchall()
 
-    terminal = {ConversationStatus.CANCELLED, ConversationStatus.CONTACT_REVEALED}
+    uid = str(current_user.id)
+    your_turn_counts = {}
+    unseen_counts    = {}
 
-    counts = {}
-    for conv in convs:
-        needs_action = False
-        if conv.status == ConversationStatus.PRICE_PENDING:
-            needs_action = True
-        elif conv.status == ConversationStatus.PRICE_AGREED:
-            # price accepted — buyer should suggest pickup
-            needs_action = True
-        elif conv.status == ConversationStatus.PRICE_SUGGESTED:
-            if conv.price_suggested_by and str(conv.price_suggested_by) != str(current_user.id):
-                needs_action = True
-        elif conv.status == ConversationStatus.PICKUP_SUGGESTED:
-            if conv.pickup_suggested_by and str(conv.pickup_suggested_by) != str(current_user.id):
-                needs_action = True
-        elif conv.status == ConversationStatus.CONTACT_REVEALED:
-            needs_action = True
-        elif conv.status == ConversationStatus.CANCELLED:
-            needs_action = True
-        elif conv.status not in terminal:
-            listing = db.query(Listing).filter(Listing.id == conv.listing_id).first()
-            if listing and listing.status == ListingStatus.SOLD:
-                needs_action = True
-        if needs_action and not conv.seen_by_buyer:
-            lid = str(conv.listing_id)
-            counts[lid] = counts.get(lid, 0) + 1
+    for row in rows:
+        lid = str(row.listing_id) if row.listing_id else None
+        if lid is None:
+            continue
+        s = row.status
 
-    return counts
+        your_turn = (
+            s == ConversationStatus.PRICE_PENDING or
+            s == ConversationStatus.PRICE_AGREED or
+            (s == ConversationStatus.PRICE_SUGGESTED and row.price_suggested_by and str(row.price_suggested_by) != uid) or
+            (s == ConversationStatus.PICKUP_SUGGESTED and row.pickup_suggested_by and str(row.pickup_suggested_by) != uid) or
+            s == ConversationStatus.CONTACT_REVEALED or
+            s == ConversationStatus.CANCELLED
+        )
+        unseen = not row.seen_by_buyer
+
+        if your_turn:
+            your_turn_counts[lid] = your_turn_counts.get(lid, 0) + 1
+        if unseen and your_turn:
+            unseen_counts[lid] = unseen_counts.get(lid, 0) + 1
+
+    all_listings = set(list(unseen_counts.keys()) + list(your_turn_counts.keys()))
+    return {lid: {"unseen": unseen_counts.get(lid, 0), "your_turn": your_turn_counts.get(lid, 0)} for lid in all_listings}
 
 
 def get_contact(db: Session, conv_id: UUID, current_user: User) -> dict:
