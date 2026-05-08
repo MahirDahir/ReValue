@@ -25,7 +25,6 @@ class ListingUpdate(BaseModel):
     longitude: Optional[float] = Field(None, ge=-180, le=180)
     address: Optional[str] = Field(None, max_length=500)
     estimated_price: Optional[float] = Field(None, ge=0, le=1_000_000)
-    status: Optional[str] = None
     pickup_slots: Optional[List[dict]] = None
 
 
