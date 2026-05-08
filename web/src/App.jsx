@@ -204,8 +204,8 @@ function App() {
     },
   }
 
-  const buyerPendingTotal  = Object.values(buyerPendingCounts).reduce((a, b) => a + b, 0)
   // Header badge = unseen only (notification), not "your turn"
+  const buyerPendingTotal  = Object.values(buyerPendingCounts).reduce((a, b) => a + (b.unseen ?? b), 0)
   const sellerPendingTotal = Object.values(listingUnreadCounts).reduce((a, b) => a + (b.unseen ?? b), 0)
 
   const displayListings = mode === 'seller'

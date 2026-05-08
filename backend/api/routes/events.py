@@ -50,10 +50,10 @@ async def sse_stream(
         try:
             while True:
                 try:
-                    # Wait up to keepalive interval for a message
+                    # Block for up to keepalive interval — releases the event loop while waiting
                     msg = await asyncio.wait_for(
-                        pubsub.get_message(ignore_subscribe_messages=True, timeout=0),
-                        timeout=_KEEPALIVE_INTERVAL,
+                        pubsub.get_message(ignore_subscribe_messages=True, timeout=_KEEPALIVE_INTERVAL),
+                        timeout=_KEEPALIVE_INTERVAL + 1,
                     )
                     if msg and msg["type"] == "message":
                         yield f"data: {msg['data']}\n\n"

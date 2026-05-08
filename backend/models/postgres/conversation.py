@@ -1,4 +1,5 @@
 from sqlalchemy import Column, String, Float, DateTime, ForeignKey, Boolean
+from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid
@@ -50,3 +51,7 @@ class Conversation(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    listing = relationship("Listing", foreign_keys=[listing_id], lazy="select")
+    buyer   = relationship("User", foreign_keys=[buyer_id],  lazy="select")
+    seller  = relationship("User", foreign_keys=[seller_id], lazy="select")
