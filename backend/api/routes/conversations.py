@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -6,13 +6,16 @@ from db.session import get_db
 from models.postgres.user import User
 from api.deps import get_current_user
 from schemas.conversation import ConversationStartWithPrice, ConversationAction, MarkSoldRequest
+from limiter import limiter
 import services.conversation_service as conversation_service
 
 router = APIRouter(prefix="/conversations", tags=["Conversations"])
 
 
 @router.post("/start", status_code=status.HTTP_201_CREATED)
+@limiter.limit("30/minute")
 def start_with_price(
+    request: Request,
     data: ConversationStartWithPrice,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -81,7 +84,9 @@ def get_conversation(
 
 
 @router.post("/{conv_id}/seen")
+@limiter.limit("60/minute")
 def mark_seen(
+    request: Request,
     conv_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -90,7 +95,9 @@ def mark_seen(
 
 
 @router.post("/{conv_id}/action")
+@limiter.limit("30/minute")
 def do_action(
+    request: Request,
     conv_id: UUID,
     action_data: ConversationAction,
     db: Session = Depends(get_db),

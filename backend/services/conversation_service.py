@@ -491,13 +491,21 @@ def get_contacts_revealed_for_listing(db: Session, listing_id: UUID, current_use
 
 def mark_sold_to_buyer(db: Session, listing_id: UUID, buyer_conv_id: UUID, current_user: User) -> dict:
     """Seller confirms which buyer actually bought — marks listing sold, cancels others."""
-    listing = db.query(Listing).filter(Listing.id == listing_id).first()
+    # Lock listing and all conversations for this listing to prevent concurrent mark-sold
+    listing = db.query(Listing).filter(Listing.id == listing_id).with_for_update().first()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
     if listing.seller_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the seller can mark a listing sold")
+    if listing.status == ListingStatus.SOLD:
+        raise HTTPException(status_code=400, detail="Listing is already sold")
 
-    winning_conv = db.query(Conversation).filter(Conversation.id == buyer_conv_id).first()
+    winning_conv = (
+        db.query(Conversation)
+        .filter(Conversation.id == buyer_conv_id)
+        .with_for_update()
+        .first()
+    )
     if not winning_conv or str(winning_conv.listing_id) != str(listing_id):
         raise HTTPException(status_code=400, detail="Conversation does not belong to this listing")
     if winning_conv.status != ConversationStatus.CONTACT_REVEALED:
@@ -508,12 +516,17 @@ def mark_sold_to_buyer(db: Session, listing_id: UUID, buyer_conv_id: UUID, curre
     listing.actual_buyer_id      = winning_conv.buyer_id
     winning_conv.seen_by_buyer   = False
 
-    # Cancel all other active conversations for this listing
-    other_convs = db.query(Conversation).filter(
-        Conversation.listing_id == listing_id,
-        Conversation.id != buyer_conv_id,
-        Conversation.status.notin_([ConversationStatus.CANCELLED, ConversationStatus.CONTACT_REVEALED]),
-    ).all()
+    # Lock and cancel all other active conversations for this listing atomically
+    other_convs = (
+        db.query(Conversation)
+        .filter(
+            Conversation.listing_id == listing_id,
+            Conversation.id != buyer_conv_id,
+            Conversation.status.notin_([ConversationStatus.CANCELLED, ConversationStatus.CONTACT_REVEALED]),
+        )
+        .with_for_update()
+        .all()
+    )
     for c in other_convs:
         c.status        = ConversationStatus.CANCELLED
         c.cancelled_by  = current_user.id

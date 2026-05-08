@@ -59,10 +59,13 @@ def register(request: Request, user_data: UserRegister, db: Session = Depends(ge
 @limiter.limit("20/minute")
 def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.phone == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.password_hash):
+    # Use verify_password even when user is None to prevent timing-based enumeration
+    dummy_hash = "$2b$12$KIXEkOBEmkXkz0gKTJPnCuqnzMdWCvAjZQFN2FyQPGz0V8FDPQ3vS"
+    password_ok = verify_password(form_data.password, user.password_hash if user else dummy_hash)
+    if not user or not password_ok:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect phone number or password",
+            detail="Invalid credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
     return _token_response(user)
