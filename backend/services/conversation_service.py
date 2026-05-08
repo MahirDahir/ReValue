@@ -468,8 +468,9 @@ def get_buyer_pending_counts(db: Session, current_user: User) -> dict:
             s == ConversationStatus.PRICE_AGREED or
             (s == ConversationStatus.PRICE_SUGGESTED and row.price_suggested_by and str(row.price_suggested_by) != uid) or
             (s == ConversationStatus.PICKUP_SUGGESTED and row.pickup_suggested_by and str(row.pickup_suggested_by) != uid) or
-            s == ConversationStatus.CONTACT_REVEALED or
-            s == ConversationStatus.CANCELLED
+            # CONTACT_REVEALED and CANCELLED: only "your turn" until buyer has seen it
+            (s == ConversationStatus.CONTACT_REVEALED and not row.seen_by_buyer) or
+            (s == ConversationStatus.CANCELLED and not row.seen_by_buyer)
         )
         unseen = not row.seen_by_buyer
 
@@ -490,11 +491,16 @@ def get_contact(db: Session, conv_id: UUID, current_user: User) -> dict:
         raise HTTPException(status_code=403, detail="Only the buyer can view contact details")
     if conv.status != ConversationStatus.CONTACT_REVEALED:
         raise HTTPException(status_code=403, detail="Seller has not shared contact yet")
-    seller  = db.query(User).filter(User.id == conv.seller_id).first()
-    listing = db.query(Listing).filter(Listing.id == conv.listing_id).first()
+    seller  = conv.seller  or db.query(User).filter(User.id == conv.seller_id).first()
+    listing = conv.listing or db.query(Listing).filter(Listing.id == conv.listing_id).first()
     # Mark seen for buyer once they fetch contact
     conv.seen_by_buyer = True
     db.commit()
+    # Push updated buyer counts so the item badge clears immediately via SSE
+    buyer = db.query(User).filter(User.id == conv.buyer_id).first()
+    if buyer:
+        buyer_counts = get_buyer_pending_counts(db, buyer)
+        _notify(str(conv.buyer_id), {"kind": "buyer_counts", "data": buyer_counts})
     return {
         "phone":     seller.phone,
         "name":      seller.name,

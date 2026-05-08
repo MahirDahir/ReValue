@@ -353,3 +353,67 @@ def test_buyer_your_turn_badge_set_after_seller_reopens(client, seller_headers, 
     assert counts[listing_id]["your_turn"] >= 1, (
         "buyer your_turn should be >=1 after reopen — buyer must re-suggest price"
     )
+
+
+# ── Fix 7: Buyer item badge stuck at CONTACT_REVEALED after fetching contact ──
+
+def _reach_contact_revealed_buyer(client, seller_headers, buyer_headers):
+    """Drive a conversation all the way to contact_revealed."""
+    listing = client.post(
+        "/api/listings/",
+        data={
+            "title": "Contact Badge Listing",
+            "waste_category": "plastic",
+            "quantity": "1",
+            "unit": "kg",
+            "latitude": "32.0853",
+            "longitude": "34.7818",
+        },
+        headers=seller_headers,
+    ).json()
+    listing_id = listing["id"]
+
+    conv = client.post(
+        "/api/conversations/start",
+        json={"listing_id": listing_id, "price": 10.0},
+        headers=buyer_headers,
+    ).json()
+    conv_id = conv["id"]
+
+    def action(headers, act, value=None):
+        return client.post(
+            f"/api/conversations/{conv_id}/action",
+            json={"action": act, "value": value},
+            headers=headers,
+        )
+
+    action(seller_headers, "accept_price")
+    action(buyer_headers, "suggest_pickup", "2026-06-01T10:00:00")
+    action(seller_headers, "accept_pickup")
+    action(seller_headers, "reveal_contact")
+    return listing_id, conv_id
+
+
+def test_buyer_item_badge_clears_after_fetching_contact(client, seller_headers, buyer_headers):
+    """Buyer item badge must drop to 0 after the buyer fetches the seller's contact details.
+
+    Regression: CONTACT_REVEALED was unconditionally in your_turn, so the badge
+    never cleared. It should only be your_turn while seen_by_buyer is False.
+    """
+    listing_id, conv_id = _reach_contact_revealed_buyer(client, seller_headers, buyer_headers)
+
+    # Before fetching contact — badge should be set
+    counts_before = client.get("/api/conversations/buyer-pending-counts", headers=buyer_headers).json()
+    assert counts_before.get(listing_id, {}).get("your_turn", 0) >= 1, (
+        "buyer your_turn should be >=1 after contact revealed (before viewing)"
+    )
+
+    # Buyer fetches contact — marks seen_by_buyer=True
+    client.get(f"/api/conversations/{conv_id}/contact", headers=buyer_headers)
+
+    # Badge should now be 0
+    counts_after = client.get("/api/conversations/buyer-pending-counts", headers=buyer_headers).json()
+    your_turn_after = counts_after.get(listing_id, {}).get("your_turn", 0)
+    assert your_turn_after == 0, (
+        "buyer your_turn should be 0 after fetching contact — nothing left to do"
+    )
