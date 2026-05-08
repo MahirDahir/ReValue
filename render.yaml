@@ -25,6 +25,11 @@ services:
         sync: false
       - key: SENTRY_DSN
         sync: false   # set manually in Render dashboard
+      - key: REDIS_URL
+        fromService:
+          name: revalue-redis
+          type: redis
+          property: connectionString
 
   # ── Frontend ───────────────────────────────────────────────────────────────
   - type: web
@@ -42,3 +47,7 @@ databases:
   - name: revalue-db
     databaseName: revalue
     user: revalue
+
+# ── Redis ──────────────────────────────────────────────────────────────────
+  - name: revalue-redis
+    type: redis

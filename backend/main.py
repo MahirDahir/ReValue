@@ -40,7 +40,10 @@ if settings.SENTRY_DSN:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    log.info("startup", app=settings.APP_NAME)
+    redis_url = os.environ.get("REDIS_URL", "")
+    if not redis_url or redis_url == "redis://localhost:6379/0":
+        log.warning("startup_warning", msg="REDIS_URL not set — SSE notifications will be silently dropped. Set REDIS_URL to a real Redis instance.")
+    log.info("startup", app=settings.APP_NAME, redis_configured=bool(redis_url))
     yield
 
 

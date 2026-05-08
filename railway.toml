@@ -6,6 +6,9 @@ name = "backend"
 dockerfilePath = "backend/Dockerfile"
 dockerContextPath = "backend"
 
+[services.variables]
+REDIS_URL = {fromService = {name = "redis", type = "redis", property = "connectionString"}}
+
 [services.deploy]
 healthcheckPath = "/health"
 restartPolicyType = "on_failure"
@@ -17,3 +20,7 @@ dockerContextPath = "web"
 
 [services.deploy]
 restartPolicyType = "on_failure"
+
+[[services]]
+name = "redis"
+type = "redis"
