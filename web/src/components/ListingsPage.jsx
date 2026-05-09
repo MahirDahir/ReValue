@@ -1,23 +1,8 @@
+import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../AppContext'
 import { WASTE_ICONS } from '../constants/categories'
 import FilterDropdown from './FilterDropdown'
 import ListingCard from './ListingCard'
-
-const MATERIAL_OPTIONS = [
-  { value: '',            label: 'All materials' },
-  { value: 'plastic',     label: 'Plastic' },
-  { value: 'glass',       label: 'Glass' },
-  { value: 'metal',       label: 'Metal' },
-  { value: 'electronics', label: 'Electronics' },
-  { value: 'other',       label: 'Other' },
-]
-
-const STATUS_OPTIONS = [
-  { value: '',                label: 'All statuses' },
-  { value: 'available',       label: 'Available' },
-  { value: 'sold',            label: 'Sold' },
-  { value: '__negotiating__', label: 'Negotiating' },
-]
 
 export default function ListingsPage({
   listings,
@@ -36,13 +21,30 @@ export default function ListingsPage({
   onMarkSoldToBuyer,
 }) {
   const { error, success, mode, setView } = useAppContext()
+  const { t } = useTranslation()
+
+  const materialOptions = [
+    { value: '',            label: t('listings.allMaterials') },
+    { value: 'plastic',     label: t('categories.plastic') },
+    { value: 'glass',       label: t('categories.glass') },
+    { value: 'metal',       label: t('categories.metal') },
+    { value: 'electronics', label: t('categories.electronics') },
+    { value: 'other',       label: t('categories.other') },
+  ]
+
+  const statusOptions = [
+    { value: '',                label: t('listings.allStatuses') },
+    { value: 'available',       label: t('filters.available') },
+    { value: 'sold',            label: t('filters.sold') },
+    { value: '__negotiating__', label: t('filters.negotiating') },
+  ]
 
   return (
     <div className="listings-page">
       <div className="listings-controls">
         <div className="listings-controls-inner">
           <span className="listings-title">
-            {mode === 'seller' ? 'My Listings' : 'Available Items'}
+            {mode === 'seller' ? t('listings.title_seller') : t('listings.title_buyer')}
           </span>
 
           <div className="listings-filters">
@@ -53,16 +55,16 @@ export default function ListingsPage({
             )}
 
             <FilterDropdown
-              label="Material"
-              options={MATERIAL_OPTIONS}
+              label={t('listings.material')}
+              options={materialOptions}
               value={activeFilter}
               onChange={onFilter}
             />
 
             {mode === 'seller' && (
               <FilterDropdown
-                label="Status"
-                options={STATUS_OPTIONS}
+                label={t('listings.status')}
+                options={statusOptions}
                 value={sellerStatusFilter}
                 onChange={setSellerStatusFilter}
               />
@@ -70,7 +72,7 @@ export default function ListingsPage({
 
             {mode === 'seller' && (
               <button className="btn btn-primary btn-sm" onClick={() => setView('create')}>
-                + Add Listing
+                {t('listings.addListing')}
               </button>
             )}
           </div>
@@ -99,10 +101,10 @@ export default function ListingsPage({
 
           {listings.length === 0 && (
             <div className="empty-state">
-              <p>{mode === 'seller' ? 'No listings yet.' : 'No items available right now.'}</p>
+              <p>{mode === 'seller' ? t('listings.noListings_seller') : t('listings.noListings_buyer')}</p>
               {mode === 'seller' && (
                 <button className="btn btn-primary" style={{ marginTop: '16px' }} onClick={() => setView('create')}>
-                  + Add Your First Listing
+                  {t('listings.addFirst')}
                 </button>
               )}
             </div>

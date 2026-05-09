@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { motion } from 'motion/react'
+import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../AppContext'
 import { WASTE_ICONS } from '../constants/categories'
-
-const STATUS_LABEL = { available: 'Available', sold: 'Sold', pending: 'Pending' }
 
 export default function ListingCard({
   listing,
@@ -18,12 +17,19 @@ export default function ListingCard({
   onMarkSoldToBuyer,
 }) {
   const { token, user, mode } = useAppContext()
+  const { t } = useTranslation()
   const isSold = listing.status === 'sold'
   const [showSoldPicker, setShowSoldPicker] = useState(false)
   const [soldBuyers, setSoldBuyers]         = useState(null)
   const [loadingBuyers, setLoadingBuyers]   = useState(false)
   const [activeNegCount, setActiveNegCount] = useState(null)
   const [lightbox, setLightbox]             = useState(false)
+
+  const statusLabel = {
+    available: t('status.available'),
+    sold:      t('status.sold'),
+    pending:   t('status.pending'),
+  }
 
   const handleMarkSoldClick = async () => {
     setLoadingBuyers(true)
@@ -68,7 +74,7 @@ export default function ListingCard({
 
         <div className="listing-status-badge">
           <span className={`status status-${listing.status}`}>
-            {STATUS_LABEL[listing.status] || listing.status}
+            {statusLabel[listing.status] || listing.status}
           </span>
         </div>
       </div>
@@ -130,7 +136,7 @@ export default function ListingCard({
         {mode === 'buyer' && token && listing.seller_id !== user?.id && !isSold && (
           <div className="listing-actions">
             <button className="btn btn-primary btn-sm btn-with-badge" style={{ flex: 1 }} onClick={() => onNegotiate(listing)}>
-              Negotiate
+              {t('card.negotiate')}
               {buyerPendingCount > 0 && <span className="badge">{buyerPendingCount}</span>}
             </button>
           </div>
@@ -141,22 +147,22 @@ export default function ListingCard({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
               <button className="btn btn-primary btn-sm btn-with-badge" style={{ flex: 1 }} onClick={() => onConversations(listing)}>
-                Negotiations
+                {t('card.negotiations')}
                 {listingUnreadCount?.unseen > 0 && (
                   <span className="badge">{listingUnreadCount.unseen}</span>
                 )}
               </button>
               {listing.status === 'available' && (
                 <button className="btn btn-ghost btn-sm" onClick={handleMarkSoldClick} disabled={loadingBuyers}>
-                  {loadingBuyers ? '…' : 'Mark Sold'}
+                  {loadingBuyers ? t('card.marking') : t('card.markSold')}
                 </button>
               )}
-              <button className="btn btn-ghost btn-sm" onClick={() => onEdit(listing)} title="Edit" style={{ padding: '6px 10px' }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => onEdit(listing)} title={t('card.edit')} style={{ padding: '6px 10px' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>
                 </svg>
               </button>
-              <button className="btn btn-delete btn-sm" title="Delete" onClick={async () => {
+              <button className="btn btn-delete btn-sm" title={t('card.delete')} onClick={async () => {
                 setActiveNegCount(null)
                 const result = await onDelete(listing.id)
                 if (typeof result === 'string' && result.startsWith('active_negotiations:')) {
@@ -172,29 +178,31 @@ export default function ListingCard({
             {activeNegCount !== null && (
               <div style={{ padding: '12px', background: 'var(--warning-light)', borderRadius: 'var(--radius-sm)', border: '1px solid #FDE68A' }}>
                 <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '6px', color: 'var(--warning)' }}>
-                  {activeNegCount} active negotiation{activeNegCount > 1 ? 's' : ''} in progress
+                  {activeNegCount === 1
+                    ? t('card.activeNegSingular', { count: activeNegCount })
+                    : t('card.activeNegPlural', { count: activeNegCount })}
                 </div>
                 <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
-                  Deleting will cancel all open negotiations and notify buyers.
+                  {t('card.deleteWarning')}
                 </p>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button className="btn btn-danger btn-sm" onClick={async () => { setActiveNegCount(null); await onForceDelete(listing.id) }}>
-                    Cancel all &amp; delete
+                    {t('card.cancelAllAndDelete')}
                   </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setActiveNegCount(null)}>Keep</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setActiveNegCount(null)}>{t('card.keep')}</button>
                 </div>
               </div>
             )}
 
             {showSoldPicker && (
               <div style={{ padding: '12px', background: 'var(--bg)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '10px' }}>Who bought this?</div>
+                <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '10px' }}>{t('card.selectBuyer')}</div>
                 {soldBuyers && soldBuyers.length === 0 ? (
                   <>
                     <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
-                      No buyers have reached the contact-sharing stage yet.
+                      {t('card.noBuyers')}
                     </p>
-                    <button className="btn btn-ghost btn-sm" onClick={() => { setShowSoldPicker(false); setSoldBuyers(null) }}>Close</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => { setShowSoldPicker(false); setSoldBuyers(null) }}>{t('common.close')}</button>
                   </>
                 ) : (
                   <>
@@ -204,10 +212,10 @@ export default function ListingCard({
                           <div style={{ fontWeight: 600, fontSize: '13px' }}>{b.buyer_name}</div>
                           {b.agreed_price && <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>${b.agreed_price}</div>}
                         </div>
-                        <button className="btn btn-primary btn-sm" onClick={() => confirmSold(b.conversation_id)}>Select</button>
+                        <button className="btn btn-primary btn-sm" onClick={() => confirmSold(b.conversation_id)}>{t('card.select')}</button>
                       </div>
                     ))}
-                    <button className="btn btn-ghost btn-sm" style={{ marginTop: '10px' }} onClick={() => { setShowSoldPicker(false); setSoldBuyers(null) }}>Cancel</button>
+                    <button className="btn btn-ghost btn-sm" style={{ marginTop: '10px' }} onClick={() => { setShowSoldPicker(false); setSoldBuyers(null) }}>{t('common.cancel')}</button>
                   </>
                 )}
               </div>

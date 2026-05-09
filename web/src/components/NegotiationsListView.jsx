@@ -1,21 +1,11 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../AppContext'
 import { displayStatus } from '../utils/conversation'
 import FilterDropdown from './FilterDropdown'
 
-const STATUS_LABELS = {
-  price_pending:     'Waiting for offer',
-  price_suggested:   '💰 Price offered',
-  price_agreed:      '✅ Price agreed',
-  pickup_suggested:  '📅 Pickup proposed',
-  pickup_agreed:     '✅ Pickup agreed',
-  contact_revealed:  '📱 Contact shared',
-  sold:              '🏷️ Sold',
-  cancelled:         'Cancelled',
-}
-
-function cancelLabel(conv, userId) {
-  return 'Withdrew'
+function cancelLabel(conv, userId, t) {
+  return t('negotiations.withdrew')
 }
 
 function isYourTurn(conv, userId) {
@@ -30,15 +20,9 @@ function isYourTurn(conv, userId) {
 const ACTIVE_STATUSES = ['price_pending', 'price_suggested', 'price_agreed', 'pickup_suggested', 'pickup_agreed']
 const DONE_STATUSES   = ['contact_revealed', 'sold']
 
-const SHOW_OPTIONS = [
-  { value: 'all',       label: 'All negotiations' },
-  { value: 'active',    label: '🟢 Active' },
-  { value: 'done',      label: '✅ Deal done' },
-  { value: 'cancelled', label: '❌ Cancelled' },
-]
-
 export default function NegotiationsListView({ listing, conversations, onSelect, onBack }) {
   const { user } = useAppContext()
+  const { t } = useTranslation()
   const [tab, setTab] = useState('all')
 
   const byNewest = (a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0)
@@ -48,24 +32,39 @@ export default function NegotiationsListView({ listing, conversations, onSelect,
   const cancelled = conversations.filter(c => c.status === 'cancelled' && !DONE_STATUSES.includes(displayStatus(c, user?.id))).sort(byNewest)
   const all       = conversations.slice().sort(byNewest)
 
-  const showOptions = SHOW_OPTIONS.map(o => ({
-    ...o,
-    label: o.value === 'all'       ? `All (${all.length})`
-         : o.value === 'active'    ? `🟢 Active (${active.length})`
-         : o.value === 'done'      ? `✅ Deal done (${done.length})`
-         : `❌ Cancelled (${cancelled.length})`,
-  }))
+  const showOptions = [
+    { value: 'all',       label: t('negotiations.all',       { count: all.length }) },
+    { value: 'active',    label: t('negotiations.active',    { count: active.length }) },
+    { value: 'done',      label: t('negotiations.done',      { count: done.length }) },
+    { value: 'cancelled', label: t('negotiations.cancelled', { count: cancelled.length }) },
+  ]
+
+  const statusLabels = {
+    price_pending:     t('history.statusLabels.price_pending'),
+    price_suggested:   t('history.statusLabels.price_suggested'),
+    price_agreed:      t('history.statusLabels.price_agreed'),
+    pickup_suggested:  t('history.statusLabels.pickup_suggested'),
+    pickup_agreed:     t('history.statusLabels.pickup_agreed'),
+    contact_revealed:  t('history.statusLabels.contact_revealed'),
+    sold:              t('history.statusLabels.sold'),
+    cancelled:         t('history.statusLabels.cancelled'),
+  }
 
   const current = tab === 'all' ? all : tab === 'active' ? active : tab === 'done' ? done : cancelled
 
+  const emptyMsg = tab === 'active'    ? t('negotiations.emptyActive')
+                 : tab === 'done'      ? t('negotiations.emptyDone')
+                 : tab === 'cancelled' ? t('negotiations.emptyCancelled')
+                 : t('negotiations.emptyAll')
+
   return (
     <div className="form-container" style={{ maxWidth: '600px' }}>
-      <button className="btn btn-ghost btn-sm" onClick={onBack} style={{ marginBottom: '20px' }}>← Back</button>
-      <h2>Negotiations — {listing?.title}</h2>
+      <button className="btn btn-ghost btn-sm" onClick={onBack} style={{ marginBottom: '20px' }}>{t('common.back')}</button>
+      <h2>{t('negotiations.title', { listing: listing?.title })}</h2>
 
       <div className="filter-row" style={{ marginBottom: '20px' }}>
         <FilterDropdown
-          label="Show"
+          label={t('negotiations.show')}
           options={showOptions}
           value={tab}
           onChange={setTab}
@@ -73,9 +72,7 @@ export default function NegotiationsListView({ listing, conversations, onSelect,
       </div>
 
       {current.length === 0 ? (
-        <p style={{ color: '#aaa', textAlign: 'center', padding: '30px 0' }}>
-          {tab === 'active' ? 'No active negotiations.' : tab === 'done' ? 'No completed deals yet.' : tab === 'cancelled' ? 'No cancelled negotiations.' : 'No negotiations yet.'}
-        </p>
+        <p style={{ color: '#aaa', textAlign: 'center', padding: '30px 0' }}>{emptyMsg}</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {current.map(conv => {
@@ -104,24 +101,24 @@ export default function NegotiationsListView({ listing, conversations, onSelect,
                     <span className="conversation-name">{conv.buyer_name}</span>
 
                     {unseen && (
-                      <span className="badge" style={{ background: 'var(--primary)', color: '#fff', fontSize: '11px' }}>New</span>
+                      <span className="badge" style={{ background: 'var(--primary)', color: '#fff', fontSize: '11px' }}>{t('negotiations.new')}</span>
                     )}
                     {!unseen && yourTurn && !isCancelled && (
                       <span style={{ padding: '1px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: 600, background: '#fff3e0', color: '#e65100', border: '1px solid #ffcc80' }}>
-                        Your turn
+                        {t('negotiations.yourTurn')}
                       </span>
                     )}
                     {isCancelled && (
                       <span style={{ fontSize: '11px', color: unseen ? '#b71c1c' : '#999', fontWeight: unseen ? 600 : 400 }}>
-                        {unseen ? `⚠ ${cancelLabel(conv, user?.id)}` : cancelLabel(conv, user?.id)}
+                        {unseen ? `⚠ ${cancelLabel(conv, user?.id, t)}` : cancelLabel(conv, user?.id, t)}
                       </span>
                     )}
                   </div>
-                  <div className="conversation-phone">{STATUS_LABELS[ds] || ds}</div>
+                  <div className="conversation-phone">{statusLabels[ds] || ds}</div>
                   {conv.agreed_price && <div style={{ fontSize: '12px', color: '#666' }}>💰 ${conv.agreed_price}</div>}
                 </div>
 
-                <span style={{ color: '#aaa', fontSize: '13px', flexShrink: 0 }}>Open →</span>
+                <span style={{ color: '#aaa', fontSize: '13px', flexShrink: 0 }}>{t('common.open')}</span>
               </div>
             )
           })}

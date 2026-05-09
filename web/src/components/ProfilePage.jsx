@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../AppContext'
 import * as usersApi from '../api/users'
 
 export default function ProfilePage({ onBack }) {
   const { user } = useAppContext()
+  const { t } = useTranslation()
   const [form, setForm]       = useState({ old_password: '', new_password: '', confirm: '' })
   const [error, setError]     = useState('')
   const [success, setSuccess] = useState('')
@@ -14,20 +16,20 @@ export default function ProfilePage({ onBack }) {
     setError('')
     setSuccess('')
     if (form.new_password !== form.confirm) {
-      setError('New passwords do not match')
+      setError(t('profile.mismatch'))
       return
     }
     if (form.new_password.length < 6) {
-      setError('New password must be at least 6 characters')
+      setError(t('profile.tooShort'))
       return
     }
     setLoading(true)
     try {
       await usersApi.changePassword(form.old_password, form.new_password)
-      setSuccess('Password changed successfully!')
+      setSuccess(t('profile.success'))
       setForm({ old_password: '', new_password: '', confirm: '' })
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to change password')
+      setError(err.response?.data?.detail || t('profile.failed'))
     } finally {
       setLoading(false)
     }
@@ -35,11 +37,10 @@ export default function ProfilePage({ onBack }) {
 
   return (
     <div className="form-container" style={{ maxWidth: '480px' }}>
-      <button className="btn btn-ghost btn-sm" onClick={onBack} style={{ marginBottom: '20px' }}>← Back</button>
+      <button className="btn btn-ghost btn-sm" onClick={onBack} style={{ marginBottom: '20px' }}>{t('common.back')}</button>
 
-      <h2 style={{ marginBottom: '24px' }}>👤 My Profile</h2>
+      <h2 style={{ marginBottom: '24px' }}>👤 {t('profile.title')}</h2>
 
-      {/* Profile info */}
       <div style={{
         background: 'var(--primary-light)', border: '1.5px solid var(--primary)',
         borderRadius: '12px', padding: '20px', marginBottom: '28px',
@@ -64,63 +65,62 @@ export default function ProfilePage({ onBack }) {
             <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary-text)' }}>
               {user?.buyer_rating?.toFixed(1) || '—'}
             </div>
-            <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>⭐ Buyer rating</div>
+            <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>{t('profile.buyerRating')}</div>
           </div>
           <div style={{ flex: 1, minWidth: '120px', background: 'white', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
             <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary-text)' }}>
               {user?.seller_rating?.toFixed(1) || '—'}
             </div>
-            <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>⭐ Seller rating</div>
+            <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>{t('profile.sellerRating')}</div>
           </div>
           <div style={{ flex: 1, minWidth: '120px', background: 'white', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
             <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary-text)' }}>
               {user?.total_transactions || 0}
             </div>
-            <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>🤝 Transactions</div>
+            <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>{t('profile.transactions')}</div>
           </div>
         </div>
       </div>
 
-      {/* Change password */}
-      <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px', color: '#333' }}>🔒 Change Password</h3>
+      <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px', color: '#333' }}>🔒 {t('profile.changePassword')}</h3>
 
       {error   && <div className="error-message"   style={{ marginBottom: '14px' }}>{error}</div>}
       {success && <div className="success-message" style={{ marginBottom: '14px' }}>{success}</div>}
 
       <form onSubmit={handleChange}>
         <div className="form-group">
-          <label>Current Password</label>
+          <label>{t('profile.currentPassword')}</label>
           <input
             type="password"
             value={form.old_password}
             onChange={e => setForm({ ...form, old_password: e.target.value })}
             required
-            placeholder="Enter current password"
+            placeholder={t('profile.currentPasswordPlaceholder')}
           />
         </div>
         <div className="form-group">
-          <label>New Password</label>
+          <label>{t('profile.newPassword')}</label>
           <input
             type="password"
             value={form.new_password}
             onChange={e => setForm({ ...form, new_password: e.target.value })}
             required
-            placeholder="At least 6 characters"
+            placeholder={t('profile.newPasswordPlaceholder')}
             minLength="6"
           />
         </div>
         <div className="form-group">
-          <label>Confirm New Password</label>
+          <label>{t('profile.confirmPassword')}</label>
           <input
             type="password"
             value={form.confirm}
             onChange={e => setForm({ ...form, confirm: e.target.value })}
             required
-            placeholder="Repeat new password"
+            placeholder={t('profile.confirmPasswordPlaceholder')}
           />
         </div>
         <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-          {loading ? 'Saving…' : 'Change Password'}
+          {loading ? t('profile.saving') : t('profile.saveBtn')}
         </button>
       </form>
     </div>

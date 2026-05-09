@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
+import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../AppContext'
 import { LocationPicker, MapRecenter } from './MapPicker'
 import { WASTE_ICONS, WASTE_CATEGORIES, WASTE_UNITS } from '../constants/categories'
@@ -9,6 +10,7 @@ const DEFAULT_COORDS = { latitude: 32.0853, longitude: 34.7818 }
 const ALL_DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
 
 function PickupSlotEditor({ slots, onChange }) {
+  const { t } = useTranslation()
   const activeSet = new Set(slots.map(s => s.day))
 
   const toggleDay = (day) => {
@@ -28,7 +30,6 @@ function PickupSlotEditor({ slots, onChange }) {
       {ALL_DAYS.map(day => {
         const active = activeSet.has(day)
         const slot   = slots.find(s => s.day === day) || {}
-        const label  = day.charAt(0).toUpperCase() + day.slice(1)
         return (
           <div
             key={day}
@@ -51,7 +52,7 @@ function PickupSlotEditor({ slots, onChange }) {
                   onClick={e => e.stopPropagation()}
                   style={{ accentColor: 'var(--primary)', width: '16px', height: '16px' }}
                 />
-                {label}
+                {t(`listingForm.days.${day}`)}
               </label>
               {active && (
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -63,7 +64,7 @@ function PickupSlotEditor({ slots, onChange }) {
             {active && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }} onClick={e => e.stopPropagation()}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>From</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('listingForm.from')}</div>
                   <input
                     type="time"
                     value={slot.start}
@@ -72,7 +73,7 @@ function PickupSlotEditor({ slots, onChange }) {
                   />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>To</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('listingForm.to')}</div>
                   <input
                     type="time"
                     value={slot.end}
@@ -110,6 +111,7 @@ function initialForm(listing) {
 export default function ListingForm({ listing, onDone, onCancel }) {
   const isEdit = Boolean(listing)
   const { setView, setError, setSuccess } = useAppContext()
+  const { t } = useTranslation()
   const [form, setForm] = useState(() => initialForm(listing))
   const [images, setImages] = useState([])
   const [imageError, setImageError] = useState('')
@@ -132,7 +134,7 @@ export default function ListingForm({ listing, onDone, onCancel }) {
           longitude: form.longitude,
           pickup_slots: form.pickup_slots,
         })
-        setSuccess('Listing updated!')
+        setSuccess(t('listingForm.updatedSuccess'))
         onDone()
         setTimeout(() => setSuccess(''), 1500)
       } else {
@@ -148,14 +150,14 @@ export default function ListingForm({ listing, onDone, onCancel }) {
         if (imageError) return
         images.forEach(img => formData.append('images', img))
         await listingsApi.createListing(formData)
-        setSuccess('Listing created!')
+        setSuccess(t('listingForm.createdSuccess'))
         setForm(initialForm(null))
         setImages([])
         onDone()
         setTimeout(() => { setView('listings'); setSuccess('') }, 1500)
       }
     } catch (err) {
-      setError(err.response?.data?.detail || `Failed to ${isEdit ? 'update' : 'create'} listing`)
+      setError(err.response?.data?.detail || t(isEdit ? 'listingForm.updateError' : 'listingForm.createError'))
     }
   }
 
@@ -163,19 +165,19 @@ export default function ListingForm({ listing, onDone, onCancel }) {
 
   return (
     <div className="form-container">
-      <button className="btn btn-ghost" onClick={handleBack} style={{ marginBottom: '16px' }}>← Back</button>
-      <h2>{isEdit ? 'Edit Listing' : 'Add Listing'}</h2>
+      <button className="btn btn-ghost" onClick={handleBack} style={{ marginBottom: '16px' }}>{t('common.back')}</button>
+      <h2>{isEdit ? t('listingForm.editTitle') : t('listingForm.addTitle')}</h2>
       <form onSubmit={handleSubmit}>
         <div className="form-group">
-          <label>Title</label>
-          <input type="text" value={form.title} onChange={set('title')} required placeholder="e.g., 50 kg of scrap metal" />
+          <label>{t('listingForm.titleLabel')}</label>
+          <input type="text" value={form.title} onChange={set('title')} required placeholder={t('listingForm.titlePlaceholder')} />
         </div>
         <div className="form-group">
-          <label>Description</label>
-          <textarea value={form.description} onChange={set('description')} placeholder="Describe the material, condition, etc." />
+          <label>{t('listingForm.descriptionLabel')}</label>
+          <textarea value={form.description} onChange={set('description')} placeholder={t('listingForm.descriptionPlaceholder')} />
         </div>
         <div className="form-group">
-          <label>Waste Category</label>
+          <label>{t('listingForm.categoryLabel')}</label>
           <select value={form.waste_category} onChange={set('waste_category')}>
             {WASTE_CATEGORIES.map(cat => (
               <option key={cat} value={cat}>{WASTE_ICONS[cat]} {cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
@@ -184,36 +186,34 @@ export default function ListingForm({ listing, onDone, onCancel }) {
         </div>
         <div className="form-group" style={{ display: 'flex', gap: '12px' }}>
           <div style={{ flex: 2 }}>
-            <label>Quantity</label>
+            <label>{t('listingForm.quantityLabel')}</label>
             <input type="number" min="1" value={form.quantity} onChange={set('quantity')} required />
           </div>
           <div style={{ flex: 1 }}>
-            <label>Unit</label>
+            <label>{t('listingForm.unitLabel')}</label>
             <select value={form.unit} onChange={set('unit')}>
               {WASTE_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
             </select>
           </div>
         </div>
         <div className="form-group">
-          <label>Estimated Price ($)</label>
-          <input type="number" step="0.01" value={form.estimated_price} onChange={set('estimated_price')} placeholder="Optional" />
+          <label>{t('listingForm.priceLabel')}</label>
+          <input type="number" step="0.01" value={form.estimated_price} onChange={set('estimated_price')} placeholder={t('listingForm.pricePlaceholder')} />
         </div>
         <div className="form-group">
-          <label>Pickup Availability</label>
-          <p style={{ fontSize: '13px', color: '#888', marginBottom: '8px' }}>
-            Select days and hours when buyers can pick up. Leave empty to allow any time.
-          </p>
+          <label>{t('listingForm.pickupLabel')}</label>
+          <p style={{ fontSize: '13px', color: '#888', marginBottom: '8px' }}>{t('listingForm.pickupHint')}</p>
           <PickupSlotEditor
             slots={form.pickup_slots}
             onChange={slots => setForm(f => ({ ...f, pickup_slots: slots }))}
           />
         </div>
         <div className="form-group">
-          <label>Address</label>
-          <input type="text" value={form.address} onChange={set('address')} placeholder="Street address for pickup" />
+          <label>{t('listingForm.addressLabel')}</label>
+          <input type="text" value={form.address} onChange={set('address')} placeholder={t('listingForm.addressPlaceholder')} />
         </div>
         <div className="form-group">
-          <label>Location — click the map to {isEdit ? 'update' : 'set'} pickup point</label>
+          <label>{isEdit ? t('listingForm.locationLabel_edit') : t('listingForm.locationLabel_create')}</label>
           <div className="create-map">
             <MapContainer center={[form.latitude || DEFAULT_COORDS.latitude, form.longitude || DEFAULT_COORDS.longitude]} zoom={13} style={{ height: '100%', width: '100%' }}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
@@ -225,7 +225,7 @@ export default function ListingForm({ listing, onDone, onCancel }) {
         </div>
         {!isEdit && (
           <div className="form-group">
-            <label>Images</label>
+            <label>{t('listingForm.imagesLabel')}</label>
             <input
               type="file"
               multiple
@@ -238,7 +238,7 @@ export default function ListingForm({ listing, onDone, onCancel }) {
                   return !ALLOWED.includes(ext.toLowerCase())
                 })
                 if (bad.length > 0) {
-                  setImageError(`Unsupported file type: ${bad.map(f => f.name).join(', ')}. Allowed: JPG, JPEG, PNG, WEBP`)
+                  setImageError(t('listingForm.imageError', { files: bad.map(f => f.name).join(', ') }))
                   setImages([])
                   e.target.value = ''
                 } else {
@@ -251,7 +251,7 @@ export default function ListingForm({ listing, onDone, onCancel }) {
           </div>
         )}
         <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: isEdit ? '8px' : '0' }}>
-          {isEdit ? 'Save Changes' : 'Create Listing'}
+          {isEdit ? t('listingForm.saveBtn') : t('listingForm.createBtn')}
         </button>
       </form>
     </div>

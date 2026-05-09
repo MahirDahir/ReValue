@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import { AppProvider } from './AppContext'
 import './index.css'
+import './i18n'
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
