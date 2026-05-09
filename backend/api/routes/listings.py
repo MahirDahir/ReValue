@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
@@ -10,6 +10,7 @@ from api.deps import get_current_user
 from schemas.listing import ListingUpdate, ListingResponse
 from services.listing_service import VALID_WASTE_CATEGORIES, VALID_STATUSES
 import services.listing_service as listing_service
+from limiter import limiter
 
 router = APIRouter(prefix="/listings", tags=["Listings"])
 
@@ -45,7 +46,9 @@ def create_listing(
 
 
 @router.get("/", response_model=List[ListingResponse])
+@limiter.limit("60/minute")
 def get_listings(
+    request: Request,
     status_filter: Optional[str] = None,
     seller_id: Optional[str] = None,
     waste_category: Optional[str] = None,
@@ -76,7 +79,8 @@ def get_my_listings(
 
 
 @router.get("/{listing_id}", response_model=ListingResponse)
-def get_listing(listing_id: UUID, db: Session = Depends(get_db)):
+@limiter.limit("120/minute")
+def get_listing(request: Request, listing_id: UUID, db: Session = Depends(get_db)):
     return listing_service.get_listing(db, listing_id)
 
 

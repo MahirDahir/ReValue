@@ -1,6 +1,9 @@
 import json
 import redis
 import os
+import structlog
+
+log = structlog.get_logger()
 
 # Sync client — used by service layer (synchronous FastAPI routes) to publish events
 _redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
@@ -22,6 +25,7 @@ def notify(user_id: str, event: dict):
     """Publish an event to a user's Redis channel. Called from sync service layer."""
     try:
         _get_client().publish(_channel(str(user_id)), json.dumps(event))
-    except redis.RedisError:
-        # Redis unavailable — degrade gracefully, client will re-sync on next HTTP request
-        pass
+    except redis.RedisError as e:
+        # Redis unavailable — log at WARNING so ops can detect outages.
+        # Client will re-sync on next HTTP request or SSE reconnect.
+        log.warning("sse_notify_dropped", user_id=str(user_id), kind=event.get("kind"), error=str(e))

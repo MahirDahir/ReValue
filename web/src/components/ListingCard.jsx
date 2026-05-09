@@ -142,8 +142,8 @@ export default function ListingCard({
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
               <button className="btn btn-primary btn-sm btn-with-badge" style={{ flex: 1 }} onClick={() => onConversations(listing)}>
                 Negotiations
-                {listingUnreadCount?.your_turn > 0 && (
-                  <span className="badge">{listingUnreadCount.your_turn}</span>
+                {listingUnreadCount?.unseen > 0 && (
+                  <span className="badge">{listingUnreadCount.unseen}</span>
                 )}
               </button>
               {listing.status === 'available' && (

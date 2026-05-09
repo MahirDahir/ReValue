@@ -432,10 +432,13 @@ def do_action(db: Session, conv_id: UUID, current_user: User, action_data: Conve
         listing = db.query(Listing).filter(Listing.id == conv.listing_id).first()
         if listing and listing.status != ListingStatus.AVAILABLE:
             raise HTTPException(status_code=400, detail="Cannot reopen — listing is no longer available")
-        conv.status             = ConversationStatus.PRICE_PENDING
-        conv.cancelled_by       = None
-        conv.suggested_price    = None
-        conv.price_suggested_by = None
+        conv.status              = ConversationStatus.PRICE_PENDING
+        conv.cancelled_by        = None
+        conv.suggested_price     = None
+        conv.price_suggested_by  = None
+        conv.suggested_pickup    = None
+        conv.agreed_pickup       = None
+        conv.pickup_suggested_by = None
         _log(db, conv, current_user, "reopened", None)
 
     # Apply seen flags from next_actor() — single source of truth, no per-branch logic

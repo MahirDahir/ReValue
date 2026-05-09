@@ -174,7 +174,7 @@ function App() {
 
   const openConversationFromHistory = async (conv) => {
     setPrevView('history')
-    setSelectedListing({ id: conv.listing_id, title: conv.listing_title, seller_name: conv.seller_name })
+    setSelectedListing({ id: conv.listing_id, title: conv.listing_title, seller_name: conv.seller_name, buyer_name: conv.buyer_name })
     setNavigating(true)
     await loadConversation(conv.id)
     setNavigating(false)
