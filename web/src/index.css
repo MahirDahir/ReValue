@@ -877,6 +877,26 @@ html, body {
   .listings-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* ── RTL overrides ── */
+[dir="rtl"] .listing-status-badge { left: auto; right: var(--sp-3); }
+[dir="rtl"] .listing-price-badge  { right: auto; left: var(--sp-3); }
+[dir="rtl"] .user-menu-dropdown   { right: auto; left: 0; }
+[dir="rtl"] .filter-dropdown-menu { left: auto; right: 0; }
+[dir="rtl"] .btn-ghost,
+[dir="rtl"] .btn-primary           { direction: rtl; }
+[dir="rtl"] .form-group label,
+[dir="rtl"] .form-group input,
+[dir="rtl"] .form-group select,
+[dir="rtl"] .form-group textarea   { text-align: right; }
+[dir="rtl"] .auth-logo             { direction: rtl; }
+[dir="rtl"] .nav-buttons           { flex-direction: row-reverse; }
+[dir="rtl"] .header-inner          { flex-direction: row-reverse; }
+[dir="rtl"] .listings-controls-inner { flex-direction: row-reverse; }
+[dir="rtl"] .listings-filters      { flex-direction: row-reverse; }
+[dir="rtl"] .conversation-row      { flex-direction: row-reverse; }
+[dir="rtl"] .user-menu-header,
+[dir="rtl"] .user-menu-item        { text-align: right; direction: rtl; }
+
 @media (min-width: 1025px) {
   .listings-grid { grid-template-columns: repeat(3, 1fr); }
 }

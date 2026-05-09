@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../AppContext'
 
 function IconRecycle() {
@@ -64,8 +65,19 @@ function IconSwitch() {
   )
 }
 
+function IconGlobe() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+      <path d="M2 12h20"/>
+    </svg>
+  )
+}
+
 export default function Header({ toggleMode, logout, onNegotiations, buyerPendingTotal, sellerPendingTotal }) {
   const { token, user, mode, setView, view } = useAppContext()
+  const { t, i18n } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
   const pendingTotal = mode === 'buyer' ? buyerPendingTotal : sellerPendingTotal
@@ -79,7 +91,11 @@ export default function Header({ toggleMode, logout, onNegotiations, buyerPendin
 
   const handleLogout = () => {
     setMenuOpen(false)
-    if (window.confirm('Are you sure you want to log out?')) logout()
+    if (window.confirm(t('header.logoutConfirm'))) logout()
+  }
+
+  const toggleLang = () => {
+    i18n.changeLanguage(i18n.language === 'he' ? 'en' : 'he')
   }
 
   return (
@@ -102,7 +118,7 @@ export default function Header({ toggleMode, logout, onNegotiations, buyerPendin
                 onClick={() => setView('listings')}
               >
                 <IconList />
-                <span className="nav-listings-text">Listings</span>
+                <span className="nav-listings-text">{t('header.listings')}</span>
               </button>
 
               <button
@@ -110,7 +126,7 @@ export default function Header({ toggleMode, logout, onNegotiations, buyerPendin
                 onClick={onNegotiations}
               >
                 <IconHandshake />
-                <span className="nav-listings-text">Negotiations</span>
+                <span className="nav-listings-text">{t('header.negotiations')}</span>
                 {pendingTotal > 0 && <span className="badge">{pendingTotal}</span>}
               </button>
 
@@ -135,20 +151,24 @@ export default function Header({ toggleMode, logout, onNegotiations, buyerPendin
                     >
                       <div className="user-menu-header">
                         <div className="user-menu-email">{user?.name}</div>
-                        <div className="user-menu-role">{mode === 'buyer' ? 'Buyer mode' : 'Seller mode'}</div>
+                        <div className="user-menu-role">{mode === 'buyer' ? t('header.buyerMode') : t('header.sellerMode')}</div>
                       </div>
                       <button className="user-menu-item" onClick={() => { setMenuOpen(false); toggleMode() }}>
                         <IconSwitch />
-                        {mode === 'buyer' ? 'Switch to Seller' : 'Switch to Buyer'}
+                        {mode === 'buyer' ? t('header.switchToSeller') : t('header.switchToBuyer')}
                       </button>
                       <button className="user-menu-item" onClick={() => { setMenuOpen(false); setView('profile') }}>
                         <IconUser />
-                        My Profile
+                        {t('header.myProfile')}
+                      </button>
+                      <button className="user-menu-item" onClick={() => { setMenuOpen(false); toggleLang() }}>
+                        <IconGlobe />
+                        {i18n.language === 'he' ? 'English' : 'עברית'}
                       </button>
                       <div className="user-menu-divider" />
                       <button className="user-menu-item user-menu-item--danger" onClick={handleLogout}>
                         <IconLogout />
-                        Log out
+                        {t('header.logout')}
                       </button>
                     </motion.div>
                   )}
@@ -157,8 +177,11 @@ export default function Header({ toggleMode, logout, onNegotiations, buyerPendin
             </>
           ) : (
             <>
-              <button className="btn btn-primary btn-sm" onClick={() => setView('login')}>Sign in</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => setView('register')}>Register</button>
+              <button className="btn btn-ghost btn-sm" onClick={toggleLang} title={i18n.language === 'he' ? 'English' : 'עברית'}>
+                <IconGlobe />
+              </button>
+              <button className="btn btn-primary btn-sm" onClick={() => setView('login')}>{t('header.signIn')}</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setView('register')}>{t('header.register')}</button>
             </>
           )}
         </div>

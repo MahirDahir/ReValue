@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../AppContext'
 import { useAuth } from '../hooks/useAuth'
 
 export default function LoginPage() {
   const { setView } = useAppContext()
   const { login } = useAuth()
+  const { t } = useTranslation()
   const [form, setForm]   = useState({ phone: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -16,7 +18,7 @@ export default function LoginPage() {
     try {
       await login(form.phone, form.password)
     } catch (err) {
-      setError(err.response?.data?.detail || 'Incorrect phone number or password')
+      setError(err.response?.data?.detail || t('login.wrongCredentials'))
     } finally {
       setLoading(false)
     }
@@ -28,25 +30,25 @@ export default function LoginPage() {
         <div className="auth-logo">
           <h1>♻️</h1>
           <h2>ReValue</h2>
-          <p>Turn your waste into money</p>
+          <p>{t('login.tagline')}</p>
         </div>
         {error && (
           <div className="error-message" style={{ marginBottom: '16px' }}>{error}</div>
         )}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Phone Number</label>
+            <label>{t('login.phoneLabel')}</label>
             <input
               type="tel"
               value={form.phone}
               onChange={e => setForm({ ...form, phone: e.target.value })}
               required
-              placeholder="+1234567890"
+              placeholder={t('login.phonePlaceholder')}
               autoFocus
             />
           </div>
           <div className="form-group">
-            <label>Password</label>
+            <label>{t('login.passwordLabel')}</label>
             <input
               type="password"
               value={form.password}
@@ -55,12 +57,12 @@ export default function LoginPage() {
             />
           </div>
           <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-            {loading ? 'Logging in…' : 'Login'}
+            {loading ? t('login.loggingIn') : t('login.loginBtn')}
           </button>
         </form>
         <p style={{ marginTop: '16px', textAlign: 'center', color: '#888' }}>
-          Don&apos;t have an account?{' '}
-          <button className="btn-link" onClick={() => setView('register')}>Register</button>
+          {t('login.noAccount')}{' '}
+          <button className="btn-link" onClick={() => setView('register')}>{t('login.registerLink')}</button>
         </p>
       </div>
     </div>

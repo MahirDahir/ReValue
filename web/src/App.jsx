@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
@@ -28,6 +29,14 @@ L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, 
 
 function App() {
   const { token, user, mode, setMode, view, setView, setError, setSuccess } = useAppContext()
+  const { i18n } = useTranslation()
+
+  // Sync document direction with active language
+  useEffect(() => {
+    const dir = i18n.language === 'he' ? 'rtl' : 'ltr'
+    document.documentElement.dir  = dir
+    document.documentElement.lang = i18n.language
+  }, [i18n.language])
   const { loadUser, logout } = useAuth()
   const {
     listings, activeFilter, listingUnreadCounts, buyerPendingCounts,

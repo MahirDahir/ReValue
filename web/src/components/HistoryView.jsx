@@ -1,24 +1,12 @@
+import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../AppContext'
 import { displayStatus } from '../utils/conversation'
 import FilterDropdown from './FilterDropdown'
-
-const STATUS_LABELS = {
-  price_pending:    { label: 'Waiting for offer',    color: '#888',    bg: '#f5f5f5' },
-  price_suggested:  { label: '💰 Price offered',     color: '#e65100', bg: '#fff3e0' },
-  price_agreed:     { label: '✅ Price agreed',       color: '#2e7d32', bg: '#e8f5e9' },
-  pickup_suggested: { label: '📅 Pickup proposed',   color: '#1565c0', bg: '#e3f2fd' },
-  pickup_agreed:    { label: '✅ Pickup agreed',      color: '#2e7d32', bg: '#e8f5e9' },
-  contact_revealed: { label: '📱 Contact shared',    color: '#6a1b9a', bg: '#f3e5f5' },
-  sold:             { label: '🏷️ Sold',              color: '#1b5e20', bg: '#e8f5e9' },
-  cancelled:        { label: '❌ Cancelled',          color: '#b71c1c', bg: '#ffebee' },
-}
 
 const ACTIVE_STATUSES     = ['price_pending', 'price_suggested', 'price_agreed', 'pickup_suggested', 'pickup_agreed']
 const NEGOTIATED_STATUSES = ['contact_revealed']
 const SOLD_STATUSES       = ['sold']
 const DEAD_STATUSES       = ['cancelled']
-
-STATUS_LABELS['listing_removed'] = { label: '🗑️ Listing removed', color: '#b71c1c', bg: '#ffebee' }
 
 function isYourTurn(conv, userId, mode) {
   const s = conv.status
@@ -44,11 +32,25 @@ function fmtTime(iso) {
 }
 
 function ConvRow({ conv, userId, mode, onOpen }) {
+  const { t } = useTranslation()
   const ds       = displayStatus(conv, userId)
-  const meta     = { ...(STATUS_LABELS[ds] || { label: ds, color: '#888', bg: '#f5f5f5' }) }
-  if (ds === 'sold' && mode === 'buyer') meta.label = '🛒 Purchased'
   const yourTurn = ACTIVE_STATUSES.includes(conv.status) && isYourTurn(conv, userId, mode)
   const unseen   = mode === 'buyer' ? !conv.seen_by_buyer : !conv.seen_by_seller
+
+  const statusLabels = {
+    price_pending:    { label: t('history.statusLabels.price_pending'),    color: '#888',    bg: '#f5f5f5' },
+    price_suggested:  { label: t('history.statusLabels.price_suggested'),  color: '#e65100', bg: '#fff3e0' },
+    price_agreed:     { label: t('history.statusLabels.price_agreed'),     color: '#2e7d32', bg: '#e8f5e9' },
+    pickup_suggested: { label: t('history.statusLabels.pickup_suggested'), color: '#1565c0', bg: '#e3f2fd' },
+    pickup_agreed:    { label: t('history.statusLabels.pickup_agreed'),    color: '#2e7d32', bg: '#e8f5e9' },
+    contact_revealed: { label: t('history.statusLabels.contact_revealed'), color: '#6a1b9a', bg: '#f3e5f5' },
+    sold:             { label: t('history.statusLabels.sold'),             color: '#1b5e20', bg: '#e8f5e9' },
+    cancelled:        { label: t('history.statusLabels.cancelled'),        color: '#b71c1c', bg: '#ffebee' },
+    listing_removed:  { label: t('history.statusLabels.listing_removed'),  color: '#b71c1c', bg: '#ffebee' },
+  }
+
+  const meta = { ...(statusLabels[ds] || { label: ds, color: '#888', bg: '#f5f5f5' }) }
+  if (ds === 'sold' && mode === 'buyer') meta.label = t('history.statusLabels.purchased')
 
   return (
     <div
@@ -67,10 +69,10 @@ function ConvRow({ conv, userId, mode, onOpen }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 600, fontSize: '14px' }}>{conv.listing_title || 'Listing'}</span>
           {unseen && (
-            <span style={{ padding: '1px 7px', borderRadius: '10px', fontSize: '10px', fontWeight: 700, background: 'var(--primary)', color: '#fff' }}>New</span>
+            <span style={{ padding: '1px 7px', borderRadius: '10px', fontSize: '10px', fontWeight: 700, background: 'var(--primary)', color: '#fff' }}>{t('common.new')}</span>
           )}
           {!unseen && yourTurn && (
-            <span style={{ padding: '1px 7px', borderRadius: '10px', fontSize: '10px', fontWeight: 700, background: '#fff3e0', color: '#e65100', border: '1px solid #ffcc80' }}>Your turn</span>
+            <span style={{ padding: '1px 7px', borderRadius: '10px', fontSize: '10px', fontWeight: 700, background: '#fff3e0', color: '#e65100', border: '1px solid #ffcc80' }}>{t('common.yourTurn')}</span>
           )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', flexShrink: 0 }}>
@@ -82,7 +84,7 @@ function ConvRow({ conv, userId, mode, onOpen }) {
           )}
         </div>
       </div>
-      {conv.buyer_name && <div style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>Buyer: <strong>{conv.buyer_name}</strong></div>}
+      {conv.buyer_name && <div style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>{t('history.buyer')}: <strong>{conv.buyer_name}</strong></div>}
       {conv.agreed_price  && <div style={{ fontSize: '13px', color: '#666', marginTop: '2px' }}>💰 ${conv.agreed_price}</div>}
       {conv.agreed_pickup && <div style={{ fontSize: '13px', color: '#666', marginTop: '2px' }}>📅 {fmtTime(conv.agreed_pickup)}</div>}
     </div>
@@ -91,6 +93,7 @@ function ConvRow({ conv, userId, mode, onOpen }) {
 
 export default function HistoryView({ conversations, tab, setTab, onBack, onOpen }) {
   const { mode, user } = useAppContext()
+  const { t } = useTranslation()
 
   const byNewest = (a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0)
 
@@ -106,18 +109,18 @@ export default function HistoryView({ conversations, tab, setTab, onBack, onOpen
   const cancelled  = modeConvs.filter(c => !c.listing_removed && DEAD_STATUSES.includes(displayStatus(c, user?.id)))
   const removed    = modeConvs.filter(c => c.listing_removed)
 
-  const soldLabel = mode === 'buyer' ? 'Purchased' : 'Sold'
-  const hasUnseen = removed.some(c => !c.seen_by_buyer)
+  const soldKey    = mode === 'buyer' ? 'history.purchased' : 'history.sold'
+  const hasUnseen  = removed.some(c => !c.seen_by_buyer)
 
   const showOptions = [
-    { value: 'all',        label: `All (${modeConvs.length})` },
-    { value: 'yourTurn',   label: `Your turn (${yourTurn.length})` },
-    { value: 'waiting',    label: `Waiting (${waiting.length})` },
-    { value: 'negotiated', label: `Negotiated (${negotiated.length})` },
-    { value: 'sold',       label: `${soldLabel} (${sold.length})` },
-    { value: 'cancelled',  label: `Cancelled (${cancelled.length})` },
+    { value: 'all',        label: t('history.all',        { count: modeConvs.length }) },
+    { value: 'yourTurn',   label: t('history.yourTurn',   { count: yourTurn.length }) },
+    { value: 'waiting',    label: t('history.waiting',    { count: waiting.length }) },
+    { value: 'negotiated', label: t('history.negotiated', { count: negotiated.length }) },
+    { value: 'sold',       label: t(soldKey,              { count: sold.length }) },
+    { value: 'cancelled',  label: t('history.cancelled',  { count: cancelled.length }) },
     ...(removed.length > 0
-      ? [{ value: 'removed', label: `Removed (${removed.length})${hasUnseen ? ' •' : ''}` }]
+      ? [{ value: 'removed', label: `${t('history.removed', { count: removed.length })}${hasUnseen ? ' •' : ''}` }]
       : []),
   ]
 
@@ -132,12 +135,12 @@ export default function HistoryView({ conversations, tab, setTab, onBack, onOpen
 
   return (
     <div className="form-container" style={{ maxWidth: '600px' }}>
-      <button className="btn btn-ghost btn-sm" onClick={onBack} style={{ marginBottom: '20px' }}>← Back</button>
-      <h2>{mode === 'seller' ? 'Selling' : 'Buying'}</h2>
+      <button className="btn btn-ghost btn-sm" onClick={onBack} style={{ marginBottom: '20px' }}>{t('common.back')}</button>
+      <h2>{mode === 'seller' ? t('history.titleSeller') : t('history.titleBuyer')}</h2>
 
       <div className="filter-row" style={{ marginBottom: '20px' }}>
         <FilterDropdown
-          label="Show"
+          label={t('history.show')}
           options={showOptions}
           value={tab}
           onChange={setTab}
@@ -145,7 +148,7 @@ export default function HistoryView({ conversations, tab, setTab, onBack, onOpen
       </div>
 
       {current.length === 0 ? (
-        <p style={{ color: '#aaa', textAlign: 'center', padding: '40px 0' }}>Nothing here yet.</p>
+        <p style={{ color: '#aaa', textAlign: 'center', padding: '40px 0' }}>{t('history.empty')}</p>
       ) : (
         current.map(conv => (
           <ConvRow key={conv.id} conv={conv} userId={user?.id} mode={mode} onOpen={onOpen} />
