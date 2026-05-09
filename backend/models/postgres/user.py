@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Float, DateTime
+from sqlalchemy import Column, String, Integer, Float, DateTime, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
@@ -19,6 +19,11 @@ class User(Base):
     seller_rating = Column(Float, default=0.0)
     buyer_rating_count = Column(Integer, default=0)
     seller_rating_count = Column(Integer, default=0)
+
+    # Business profile (optional — set via profile page, displayed instead of personal name)
+    business_name = Column(String(255), nullable=True)
+    business_type = Column(String(50),  nullable=True)  # contractor/dealer/factory/other
+    is_verified   = Column(Boolean,     nullable=False, default=False)
 
     # Stats
     total_transactions = Column(Integer, default=0)

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from uuid import UUID
 
 
@@ -43,6 +43,24 @@ class UserResponse(BaseModel):
     buyer_rating: float
     seller_rating: float
     total_transactions: int
+    business_name: str | None = None
+    business_type: str | None = None
+    is_verified: bool = False
 
     class Config:
         from_attributes = True
+
+
+VALID_BUSINESS_TYPES = ["contractor", "dealer", "factory", "other"]
+
+
+class BusinessProfileUpdate(BaseModel):
+    business_name: str | None = Field(None, max_length=255)
+    business_type: str | None = None
+
+    @field_validator("business_type")
+    @classmethod
+    def validate_business_type(cls, v):
+        if v is not None and v not in VALID_BUSINESS_TYPES:
+            raise ValueError(f"business_type must be one of: {VALID_BUSINESS_TYPES}")
+        return v

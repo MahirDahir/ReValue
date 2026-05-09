@@ -3,13 +3,39 @@ import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../AppContext'
 import * as usersApi from '../api/users'
 
+const BUSINESS_TYPES = ['contractor', 'dealer', 'factory', 'other']
+
 export default function ProfilePage({ onBack }) {
-  const { user } = useAppContext()
+  const { user, setUser } = useAppContext()
   const { t } = useTranslation()
-  const [form, setForm]       = useState({ old_password: '', new_password: '', confirm: '' })
-  const [error, setError]     = useState('')
-  const [success, setSuccess] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [form, setForm]             = useState({ old_password: '', new_password: '', confirm: '' })
+  const [error, setError]           = useState('')
+  const [success, setSuccess]       = useState('')
+  const [loading, setLoading]       = useState(false)
+  const [bizForm, setBizForm]       = useState({ business_name: user?.business_name || '', business_type: user?.business_type || '' })
+  const [bizError, setBizError]     = useState('')
+  const [bizSuccess, setBizSuccess] = useState('')
+  const [bizLoading, setBizLoading] = useState(false)
+
+  const handleBizSave = async (e) => {
+    e.preventDefault()
+    setBizError('')
+    setBizSuccess('')
+    setBizLoading(true)
+    try {
+      const res = await usersApi.updateBusinessProfile({
+        business_name: bizForm.business_name.trim() || null,
+        business_type: bizForm.business_type || null,
+      })
+      setBizSuccess(t('profile.businessSaved'))
+      if (setUser) setUser(u => ({ ...u, business_name: res.data.business_name, business_type: res.data.business_type, is_verified: res.data.is_verified }))
+      setTimeout(() => setBizSuccess(''), 3000)
+    } catch (err) {
+      setBizError(err.response?.data?.detail || t('profile.businessFailed'))
+    } finally {
+      setBizLoading(false)
+    }
+  }
 
   const handleChange = async (e) => {
     e.preventDefault()
@@ -81,6 +107,41 @@ export default function ProfilePage({ onBack }) {
           </div>
         </div>
       </div>
+
+      <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '4px', color: '#333' }}>🏢 {t('profile.businessProfile')}</h3>
+      <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>{t('profile.businessProfileHint')}</p>
+
+      {bizError   && <div className="error-message"   style={{ marginBottom: '14px' }}>{bizError}</div>}
+      {bizSuccess && <div className="success-message" style={{ marginBottom: '14px' }}>{bizSuccess}</div>}
+
+      {user?.is_verified && (
+        <div style={{ marginBottom: '12px', fontWeight: 600, color: 'var(--primary-text)', fontSize: '13px' }}>{t('profile.isVerified')}</div>
+      )}
+
+      <form onSubmit={handleBizSave} style={{ marginBottom: '32px' }}>
+        <div className="form-group">
+          <label>{t('profile.businessNameLabel')}</label>
+          <input
+            type="text"
+            value={bizForm.business_name}
+            onChange={e => setBizForm(f => ({ ...f, business_name: e.target.value }))}
+            placeholder={t('profile.businessNamePlaceholder')}
+            maxLength={255}
+          />
+        </div>
+        <div className="form-group">
+          <label>{t('profile.businessTypeLabel')}</label>
+          <select value={bizForm.business_type} onChange={e => setBizForm(f => ({ ...f, business_type: e.target.value }))}>
+            <option value="">{t('profile.businessTypeNone')}</option>
+            {BUSINESS_TYPES.map(type => (
+              <option key={type} value={type}>{t(`profile.businessTypes.${type}`)}</option>
+            ))}
+          </select>
+        </div>
+        <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={bizLoading}>
+          {bizLoading ? t('common.saving') : t('profile.businessSaveBtn')}
+        </button>
+      </form>
 
       <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px', color: '#333' }}>🔒 {t('profile.changePassword')}</h3>
 

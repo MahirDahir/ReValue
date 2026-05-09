@@ -33,6 +33,9 @@ def _token_response(user: User) -> TokenResponse:
             "buyer_rating": user.buyer_rating,
             "seller_rating": user.seller_rating,
             "total_transactions": user.total_transactions,
+            "business_name": user.business_name,
+            "business_type": user.business_type,
+            "is_verified":   user.is_verified,
         },
     )
 

@@ -27,6 +27,9 @@ def _listing_to_dict(listing: Listing, seller: User) -> dict:
         "id": str(listing.id),
         "seller_id": str(listing.seller_id),
         "seller_name": seller.name,
+        "seller_business_name": seller.business_name,
+        "seller_business_type": seller.business_type,
+        "seller_is_verified":   seller.is_verified,
         "title": listing.title,
         "description": listing.description,
         "waste_category": listing.waste_category,
@@ -38,6 +41,8 @@ def _listing_to_dict(listing: Listing, seller: User) -> dict:
         "address": listing.address,
         "images": listing.images,
         "estimated_price": listing.estimated_price,
+        "quantity_kg":     listing.quantity_kg,
+        "price_per_kg":    listing.price_per_kg,
         "seller_rating": seller.seller_rating,
         "pickup_slots": listing.pickup_slots or [],
     }
@@ -116,6 +121,8 @@ def create_listing(
     estimated_price: Optional[float],
     image_files,
     pickup_slots: Optional[list] = None,
+    quantity_kg: Optional[float] = None,
+    price_per_kg: Optional[float] = None,
 ) -> dict:
     if waste_category.lower() not in VALID_WASTE_CATEGORIES:
         raise HTTPException(
@@ -147,6 +154,8 @@ def create_listing(
         longitude=longitude,
         address=address,
         estimated_price=estimated_price,
+        quantity_kg=quantity_kg,
+        price_per_kg=price_per_kg,
         images=image_urls,
         pickup_slots=pickup_slots or [],
     )
