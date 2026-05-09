@@ -107,7 +107,9 @@ def do_action(
 
 
 @router.get("/{conv_id}/contact")
+@limiter.limit("20/minute")
 def get_contact(
+    request: Request,
     conv_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

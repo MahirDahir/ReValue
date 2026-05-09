@@ -44,9 +44,16 @@ async def sse_stream(
 
     async def event_generator():
         # Each SSE connection gets its own async Redis pubsub handle
-        r = aioredis.from_url(_REDIS_URL, decode_responses=True)
-        pubsub = r.pubsub()
-        await pubsub.subscribe(channel)
+        try:
+            r = aioredis.from_url(_REDIS_URL, decode_responses=True)
+            pubsub = r.pubsub()
+            await pubsub.subscribe(channel)
+        except Exception:
+            # Redis unreachable — yield a clean disconnect comment so the client
+            # can reconnect later rather than spinning in a tight error loop
+            yield ": redis_unavailable\n\n"
+            return
+
         try:
             while True:
                 try:
@@ -61,11 +68,18 @@ async def sse_stream(
                         yield ": keepalive\n\n"
                 except asyncio.TimeoutError:
                     yield ": keepalive\n\n"
+                except Exception:
+                    # Transient Redis error mid-stream — yield keepalive and let browser reconnect
+                    yield ": keepalive\n\n"
+                    break
         except asyncio.CancelledError:
             pass
         finally:
-            await pubsub.unsubscribe(channel)
-            await r.aclose()
+            try:
+                await pubsub.unsubscribe(channel)
+                await r.aclose()
+            except Exception:
+                pass
 
     return StreamingResponse(
         event_generator(),

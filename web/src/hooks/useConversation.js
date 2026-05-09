@@ -72,8 +72,7 @@ export function useConversation() {
     try {
       const res = await convApi.getContact(convRef.current.id)
       setContact(res.data)
-      // Contact fetch marks seen server-side; refresh conv to clear badge
-      loadConversation(convRef.current.id)
+      // SSE push from get_contact updates the conversation — no need for a separate fetch
     } catch (err) {
       setError(err.response?.data?.detail || 'Could not load contact')
     }

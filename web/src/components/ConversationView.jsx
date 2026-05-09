@@ -104,28 +104,36 @@ export default function ConversationView({ conversation, listing, contact, onSta
   const [pickupInput, setPickupInput] = useState('')
   const [priceError, setPriceError]   = useState('')
   const [pickupError, setPickupError] = useState('')
+  const [submitting, setSubmitting]   = useState(false)
 
-  const isBuyer  = mode === 'buyer'
-  const isSeller = mode === 'seller'
+  // Derive role from conversation data — mode toggle should not affect action controls
+  const isBuyer  = conversation ? String(user?.id) === String(conversation.buyer_id)  : mode === 'buyer'
+  const isSeller = conversation ? String(user?.id) === String(conversation.seller_id) : mode === 'seller'
   const s        = conversation?.status
 
-  // Mark seen only when the conversation is first opened (id changes), not on every SSE update
+  // Mark seen whenever the conversation is opened OR when an SSE update arrives while it's open
   useEffect(() => {
     if (conversation?.id) onMarkSeen?.(conversation.id)
-  }, [conversation?.id])
+  }, [conversation?.id, conversation?.status, conversation?.updated_at])
 
-  const act = (action, value) => {
+  const act = async (action, value) => {
+    if (submitting) return
     setPriceInput(''); setPickupInput('')
     setPriceError(''); setPickupError('')
-    onAction(action, value ?? null)
+    setSubmitting(true)
+    try { await onAction(action, value ?? null) }
+    finally { setSubmitting(false) }
   }
 
   const handleSendOffer = async () => {
     const price = parseFloat(priceInput)
     if (!price || price <= 0) { setPriceError('Please enter a valid price greater than 0'); return }
+    if (submitting) return
     setPriceError('')
     setPriceInput('')
-    await onStartWithPrice(price)
+    setSubmitting(true)
+    try { await onStartWithPrice(price) }
+    finally { setSubmitting(false) }
   }
 
   const handleSuggestPickup = (value) => {
@@ -246,13 +254,14 @@ export default function ConversationView({ conversation, listing, contact, onSta
         <button
           className="btn btn-primary"
           style={{ width: '100%', marginBottom: '8px' }}
+          disabled={submitting}
           onClick={() => act('reopen')}
         >
           🔄 Reopen negotiation
         </button>
       )}
 
-      {!cancelled && <>
+      {!cancelled && <fieldset disabled={submitting} style={{ border: 'none', padding: 0, margin: 0 }}><>
 
         {/* ── NEXT STEP HINTS ── */}
         {isBuyer && s === 'price_suggested' && iMyPriceSuggestion && (
@@ -426,7 +435,7 @@ export default function ConversationView({ conversation, listing, contact, onSta
           </button>
         )}
 
-      </>}
+      </></fieldset>}
 
       {/* Info message for sold-to-other cancelled conversations */}
       {cancelled && soldToOther && isBuyer && (

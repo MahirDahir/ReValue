@@ -13,8 +13,8 @@ class ConversationStartWithPrice(BaseModel):
 
 
 class ConversationAction(BaseModel):
-    action: str
-    value: Optional[str] = None
+    action: str = Field(..., max_length=30)
+    value: Optional[str] = Field(None, max_length=100)
 
 
 class MarkSoldRequest(BaseModel):
