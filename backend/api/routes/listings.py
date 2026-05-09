@@ -26,6 +26,8 @@ def create_listing(
     longitude: float = Form(...),
     address: Optional[str] = Form(None),
     estimated_price: Optional[float] = Form(None),
+    quantity_kg: Optional[float] = Form(None),
+    price_per_kg: Optional[float] = Form(None),
     pickup_slots: Optional[str] = Form(None),
     images: List[UploadFile] = File(default=[]),
     db: Session = Depends(get_db),
@@ -35,6 +37,10 @@ def create_listing(
         raise HTTPException(status_code=400, detail="latitude must be between -90 and 90")
     if not (-180 <= longitude <= 180):
         raise HTTPException(status_code=400, detail="longitude must be between -180 and 180")
+    if quantity_kg is not None and quantity_kg <= 0:
+        raise HTTPException(status_code=400, detail="quantity_kg must be greater than 0")
+    if price_per_kg is not None and price_per_kg <= 0:
+        raise HTTPException(status_code=400, detail="price_per_kg must be greater than 0")
     try:
         slots = json.loads(pickup_slots) if pickup_slots else []
     except (json.JSONDecodeError, TypeError):
@@ -42,6 +48,7 @@ def create_listing(
     return listing_service.create_listing(
         db, current_user, title, description, waste_category,
         quantity, unit, latitude, longitude, address, estimated_price, images, slots,
+        quantity_kg=quantity_kg, price_per_kg=price_per_kg,
     )
 
 

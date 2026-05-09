@@ -92,7 +92,7 @@ function PickupSlotEditor({ slots, onChange }) {
 
 function initialForm(listing) {
   if (!listing) {
-    return { title: '', description: '', waste_category: 'plastic', quantity: 1, unit: 'pieces', ...DEFAULT_COORDS, address: '', estimated_price: '', pickup_slots: [] }
+    return { title: '', description: '', waste_category: 'plastic', quantity: 1, unit: 'pieces', ...DEFAULT_COORDS, address: '', estimated_price: '', quantity_kg: '', price_per_kg: '', pickup_slots: [] }
   }
   return {
     title: listing.title,
@@ -101,6 +101,8 @@ function initialForm(listing) {
     quantity: listing.quantity,
     unit: listing.unit || 'pieces',
     estimated_price: listing.estimated_price ?? '',
+    quantity_kg: listing.quantity_kg ?? '',
+    price_per_kg: listing.price_per_kg ?? '',
     address: listing.address || '',
     latitude: listing.latitude,
     longitude: listing.longitude,
@@ -129,6 +131,8 @@ export default function ListingForm({ listing, onDone, onCancel }) {
           quantity: parseInt(form.quantity, 10),
           unit: form.unit,
           estimated_price: form.estimated_price !== '' ? parseFloat(form.estimated_price) : null,
+          quantity_kg: form.quantity_kg !== '' ? parseFloat(form.quantity_kg) : null,
+          price_per_kg: form.price_per_kg !== '' ? parseFloat(form.price_per_kg) : null,
           address: form.address || null,
           latitude: form.latitude,
           longitude: form.longitude,
@@ -198,8 +202,23 @@ export default function ListingForm({ listing, onDone, onCancel }) {
         </div>
         <div className="form-group">
           <label>{t('listingForm.priceLabel')}</label>
-          <input type="number" step="0.01" value={form.estimated_price} onChange={set('estimated_price')} placeholder={t('listingForm.pricePlaceholder')} />
+          <input type="number" step="0.01" min="0" value={form.estimated_price} onChange={set('estimated_price')} placeholder={t('listingForm.pricePlaceholder')} />
         </div>
+        <div className="form-group" style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ flex: 1 }}>
+            <label>{t('listingForm.weightLabel')}</label>
+            <input type="number" step="0.01" min="0" value={form.quantity_kg} onChange={set('quantity_kg')} placeholder={t('listingForm.weightPlaceholder')} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label>{t('listingForm.pricePerKgLabel')}</label>
+            <input type="number" step="0.01" min="0" value={form.price_per_kg} onChange={set('price_per_kg')} placeholder={t('listingForm.pricePerKgPlaceholder')} />
+          </div>
+        </div>
+        {form.quantity_kg !== '' && form.price_per_kg !== '' && parseFloat(form.quantity_kg) > 0 && parseFloat(form.price_per_kg) > 0 && (
+          <p style={{ fontSize: '13px', color: 'var(--primary-text)', fontWeight: 600, marginTop: '-8px', marginBottom: '8px' }}>
+            {t('listingForm.totalEstimate', { total: (parseFloat(form.quantity_kg) * parseFloat(form.price_per_kg)).toFixed(0) })}
+          </p>
+        )}
         <div className="form-group">
           <label>{t('listingForm.pickupLabel')}</label>
           <p style={{ fontSize: '13px', color: '#888', marginBottom: '8px' }}>{t('listingForm.pickupHint')}</p>

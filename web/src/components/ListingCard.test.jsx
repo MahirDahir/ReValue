@@ -35,7 +35,7 @@ describe('ListingCard', () => {
   it('renders listing title and price', () => {
     renderWithContext(<ListingCard {...defaultProps} />)
     expect(screen.getByText('100 kg of Scrap Glass')).toBeInTheDocument()
-    expect(screen.getByText('$25')).toBeInTheDocument()
+    expect(screen.getByText('₪25')).toBeInTheDocument()
   })
 
   it('renders status badge', () => {

@@ -68,9 +68,11 @@ export default function ListingCard({
           </div>
         )}
 
-        {listing.estimated_price && (
-          <span className="listing-price-badge">${listing.estimated_price}</span>
-        )}
+        {listing.price_per_kg ? (
+          <span className="listing-price-badge">{t('card.pricePerKg', { price: listing.price_per_kg })}</span>
+        ) : listing.estimated_price ? (
+          <span className="listing-price-badge">₪{listing.estimated_price}</span>
+        ) : null}
 
         <div className="listing-status-badge">
           <span className={`status status-${listing.status}`}>
@@ -106,10 +108,21 @@ export default function ListingCard({
           <span>{listing.waste_category.charAt(0).toUpperCase() + listing.waste_category.slice(1)}</span>
           <span className="meta-sep">·</span>
           <span>{listing.quantity} {listing.unit}</span>
+          {listing.quantity_kg && (
+            <>
+              <span className="meta-sep">·</span>
+              <span>{t('card.weightKg', { kg: listing.quantity_kg })}</span>
+            </>
+          )}
         </div>
 
-        {mode === 'buyer' && listing.seller_name && (
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>{listing.seller_name}</p>
+        {mode === 'buyer' && (listing.seller_business_name || listing.seller_name) && (
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
+            {listing.seller_business_name || listing.seller_name}
+            {listing.seller_is_verified && (
+              <span style={{ fontSize: '11px', color: 'var(--primary-text)', fontWeight: 600 }}>{t('card.verifiedBusiness')}</span>
+            )}
+          </p>
         )}
 
         <p className="listing-location">{getLocationDisplay(listing)}</p>

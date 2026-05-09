@@ -12,6 +12,8 @@ class ListingCreate(BaseModel):
     longitude: float = Field(..., ge=-180, le=180)
     address: Optional[str] = Field(None, max_length=500)
     estimated_price: Optional[float] = Field(None, ge=0, le=1_000_000)
+    quantity_kg: Optional[float] = Field(None, gt=0, le=1_000_000)
+    price_per_kg: Optional[float] = Field(None, gt=0, le=1_000_000)
     pickup_slots: Optional[List[dict]] = []
 
 
@@ -25,6 +27,8 @@ class ListingUpdate(BaseModel):
     longitude: Optional[float] = Field(None, ge=-180, le=180)
     address: Optional[str] = Field(None, max_length=500)
     estimated_price: Optional[float] = Field(None, ge=0, le=1_000_000)
+    quantity_kg: Optional[float] = Field(None, gt=0, le=1_000_000)
+    price_per_kg: Optional[float] = Field(None, gt=0, le=1_000_000)
     pickup_slots: Optional[List[dict]] = None
 
 
@@ -32,6 +36,9 @@ class ListingResponse(BaseModel):
     id: str
     seller_id: str
     seller_name: str
+    seller_business_name: Optional[str] = None
+    seller_business_type: Optional[str] = None
+    seller_is_verified: bool = False
     title: str
     description: Optional[str]
     waste_category: str
@@ -43,6 +50,8 @@ class ListingResponse(BaseModel):
     address: Optional[str]
     images: list
     estimated_price: Optional[float]
+    quantity_kg: Optional[float] = None
+    price_per_kg: Optional[float] = None
     seller_rating: float
     pickup_slots: Optional[list] = []
 

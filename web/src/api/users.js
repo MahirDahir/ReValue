@@ -15,3 +15,7 @@ export function updateProfile(data) {
 export function changePassword(old_password, new_password) {
   return client.post('/users/me/change-password', { old_password, new_password })
 }
+
+export function updateBusinessProfile(data) {
+  return client.put('/users/me/business-profile', data)
+}

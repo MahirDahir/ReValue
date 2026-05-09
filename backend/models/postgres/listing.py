@@ -43,8 +43,10 @@ class Listing(Base):
     # Images - stored as JSON array of URLs
     images = Column(JSON, default=list)
 
-    # Pricing (negotiated via chat, but can have initial estimate)
+    # Pricing — fixed estimate OR weight-based (both optional, combinable)
     estimated_price = Column(Float, nullable=True)
+    quantity_kg     = Column(Float, nullable=True)   # declared weight in kg
+    price_per_kg    = Column(Float, nullable=True)   # asking price per kg
 
     # Seller's available pickup slots: [{"day": "monday", "start": "09:00", "end": "17:00"}, ...]
     pickup_slots = Column(JSON, default=list, nullable=True)
