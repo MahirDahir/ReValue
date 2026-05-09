@@ -11,6 +11,60 @@ from schemas.conversation import ConversationAction
 from services.sse_bus import notify as _notify
 
 
+# ── Single source of truth for turn logic ────────────────────────────────────
+
+def next_actor(
+    status: str,
+    price_suggested_by,   # UUID | None
+    pickup_suggested_by,  # UUID | None
+    buyer_id,             # UUID
+    seller_id,            # UUID
+) -> str | None:
+    """
+    Return "buyer", "seller", or None based solely on conversation state.
+    This is the single place that answers "whose turn is it?".
+    Both count queries and seen-flag resets derive from this function.
+    """
+    buyer_id_s  = str(buyer_id)
+    seller_id_s = str(seller_id)
+
+    if status == ConversationStatus.PRICE_PENDING:
+        return "buyer"
+
+    if status == ConversationStatus.PRICE_SUGGESTED:
+        suggester = str(price_suggested_by) if price_suggested_by else None
+        if suggester == buyer_id_s:
+            return "seller"
+        if suggester == seller_id_s:
+            return "buyer"
+        return None
+
+    if status == ConversationStatus.PRICE_AGREED:
+        # Either party can suggest pickup; notify both so neither waits indefinitely
+        return "both"
+
+    if status == ConversationStatus.PICKUP_SUGGESTED:
+        suggester = str(pickup_suggested_by) if pickup_suggested_by else None
+        if suggester == buyer_id_s:
+            return "seller"
+        if suggester == seller_id_s:
+            return "buyer"
+        return None
+
+    if status == ConversationStatus.PICKUP_AGREED:
+        return "seller"  # seller must reveal contact
+
+    if status == ConversationStatus.CONTACT_REVEALED:
+        return "buyer"   # buyer must fetch contact (acknowledged once seen)
+
+    if status == ConversationStatus.CANCELLED:
+        return "both"    # both parties should acknowledge
+
+    return None  # terminal (nothing left to do)
+
+
+# ── Query helpers ─────────────────────────────────────────────────────────────
+
 def _load_conversations_eager(query):
     """Apply joinedload for listing/buyer/seller so _to_dict makes zero extra queries."""
     return query.options(
@@ -96,6 +150,35 @@ def _to_dict(conv: Conversation, db: Session, include_events: bool = True) -> di
     }
 
 
+def _apply_seen_flags(conv: Conversation, actor_id, new_status: str):
+    """
+    After any state transition, reset seen flags based on next_actor().
+    The acting party always marks their own side as seen (they just acted).
+    The other party's flag is set to False so they get notified.
+    'both' (CANCELLED) notifies everyone.
+    """
+    actor_s = str(actor_id)
+    actor   = next_actor(new_status, conv.price_suggested_by, conv.pickup_suggested_by, conv.buyer_id, conv.seller_id)
+
+    if actor == "buyer":
+        conv.seen_by_buyer  = False
+        conv.seen_by_seller = True
+    elif actor == "seller":
+        conv.seen_by_seller = False
+        conv.seen_by_buyer  = True
+    elif actor == "both":
+        # Notify both — whoever acted has already seen it, the other hasn't
+        if actor_s == str(conv.buyer_id):
+            conv.seen_by_seller = False
+            conv.seen_by_buyer  = True
+        else:
+            conv.seen_by_buyer  = False
+            conv.seen_by_seller = True
+    # actor == None: terminal state, no notification needed
+
+
+# ── Public service functions ──────────────────────────────────────────────────
+
 def _validate_listing_for_negotiation(db: Session, listing_id: UUID, current_user: User) -> Listing:
     listing = db.query(Listing).filter(Listing.id == listing_id).first()
     if not listing:
@@ -127,7 +210,7 @@ def start_with_price(db: Session, current_user: User, listing_id: UUID, price: f
             existing.suggested_price    = price
             existing.price_suggested_by = current_user.id
             existing.status             = ConversationStatus.PRICE_SUGGESTED
-            existing.seen_by_seller     = False
+            _apply_seen_flags(existing, current_user.id, ConversationStatus.PRICE_SUGGESTED)
             _log(db, existing, current_user, "price_suggested", str(price))
             db.commit()
             db.refresh(existing)
@@ -143,10 +226,10 @@ def start_with_price(db: Session, current_user: User, listing_id: UUID, price: f
             seller_id=listing.seller_id,
             status=ConversationStatus.PRICE_AGREED,
             agreed_price=listing.estimated_price,
-            seen_by_seller=False,
         )
         db.add(conv)
         db.flush()
+        _apply_seen_flags(conv, current_user.id, ConversationStatus.PRICE_AGREED)
         _log(db, conv, current_user, "negotiation_started", None)
         _log(db, conv, current_user, "price_agreed", str(listing.estimated_price))
     else:
@@ -157,10 +240,10 @@ def start_with_price(db: Session, current_user: User, listing_id: UUID, price: f
             status=ConversationStatus.PRICE_SUGGESTED,
             suggested_price=price,
             price_suggested_by=current_user.id,
-            seen_by_seller=False,
         )
         db.add(conv)
         db.flush()
+        _apply_seen_flags(conv, current_user.id, ConversationStatus.PRICE_SUGGESTED)
         _log(db, conv, current_user, "negotiation_started", None)
         _log(db, conv, current_user, "price_suggested", str(price))
 
@@ -186,19 +269,35 @@ def mark_seen(db: Session, conv_id: UUID, current_user: User) -> dict:
         raise HTTPException(status_code=404, detail="Conversation not found")
     if current_user.id not in (conv.buyer_id, conv.seller_id):
         raise HTTPException(status_code=403, detail="Not your conversation")
-    if current_user.id == conv.buyer_id:
+
+    is_buyer = current_user.id == conv.buyer_id
+    already_seen = conv.seen_by_buyer if is_buyer else conv.seen_by_seller
+
+    if is_buyer:
         conv.seen_by_buyer = True
     else:
         conv.seen_by_seller = True
+
+    # Write a seen event to the timeline so the other party knows
+    if not already_seen:
+        _log(db, conv, current_user, "seen", None)
+
     db.commit()
     db.refresh(conv)
+
     # Push updated counts so badge clears instantly via SSE
-    if current_user.id == conv.buyer_id:
+    # Also push the updated conversation to the OTHER party so they see the "seen" event
+    if is_buyer:
         buyer_counts = get_buyer_pending_counts(db, current_user)
         _notify(str(current_user.id), {"kind": "buyer_counts", "data": buyer_counts})
+        conv_dict = _to_dict(conv, db)
+        _notify(str(conv.seller_id), {"kind": "conversation", "data": conv_dict})
     else:
         seller_counts = get_pending_counts(db, current_user)
         _notify(str(current_user.id), {"kind": "seller_counts", "data": seller_counts})
+        conv_dict = _to_dict(conv, db)
+        _notify(str(conv.buyer_id), {"kind": "conversation", "data": conv_dict})
+
     return _to_dict(conv, db)
 
 
@@ -250,7 +349,6 @@ def do_action(db: Session, conv_id: UUID, current_user: User, action_data: Conve
 
     # ── PRICE NEGOTIATION ─────────────────────────────────────────────
     if action == "suggest_price":
-        # Allow re-suggesting when price_pending OR when you are the one waiting (your own suggestion)
         can_suggest = conv.status == ConversationStatus.PRICE_PENDING or (
             conv.status == ConversationStatus.PRICE_SUGGESTED
             and str(conv.price_suggested_by) == str(current_user.id)
@@ -266,10 +364,6 @@ def do_action(db: Session, conv_id: UUID, current_user: User, action_data: Conve
         conv.suggested_price    = price
         conv.price_suggested_by = current_user.id
         conv.status             = ConversationStatus.PRICE_SUGGESTED
-        if is_buyer:
-            conv.seen_by_seller = False
-        else:
-            conv.seen_by_buyer = False
         _log(db, conv, current_user, "price_suggested", str(price))
 
     elif action == "accept_price":
@@ -279,13 +373,6 @@ def do_action(db: Session, conv_id: UUID, current_user: User, action_data: Conve
             raise HTTPException(status_code=403, detail="You cannot accept your own offer")
         conv.agreed_price = conv.suggested_price
         conv.status       = ConversationStatus.PRICE_AGREED
-        if is_buyer:
-            # Notify seller of the acceptance, and buyer is next actor (must suggest pickup)
-            conv.seen_by_seller = False
-            conv.seen_by_buyer  = False
-        else:
-            # Notify buyer of the acceptance, and buyer is next actor (must suggest pickup)
-            conv.seen_by_buyer  = False
         _log(db, conv, current_user, "price_accepted", str(conv.agreed_price))
 
     elif action == "decline_price":
@@ -297,15 +384,10 @@ def do_action(db: Session, conv_id: UUID, current_user: User, action_data: Conve
         conv.suggested_price    = None
         conv.price_suggested_by = None
         conv.status             = ConversationStatus.PRICE_PENDING
-        if is_buyer:
-            conv.seen_by_seller = False
-        else:
-            conv.seen_by_buyer = False
         _log(db, conv, current_user, "price_declined", str(old_price))
 
     # ── PICKUP NEGOTIATION ────────────────────────────────────────────
     elif action == "suggest_pickup":
-        # Allowed when: price agreed (first suggestion), OR updating your own pending suggestion, OR countering the other party
         if conv.status not in (ConversationStatus.PRICE_AGREED, ConversationStatus.PICKUP_SUGGESTED):
             raise HTTPException(status_code=400, detail=f"Cannot suggest pickup in state: {conv.status}")
         if not action_data.value:
@@ -313,10 +395,6 @@ def do_action(db: Session, conv_id: UUID, current_user: User, action_data: Conve
         conv.suggested_pickup    = action_data.value
         conv.pickup_suggested_by = current_user.id
         conv.status              = ConversationStatus.PICKUP_SUGGESTED
-        if is_buyer:
-            conv.seen_by_seller = False
-        else:
-            conv.seen_by_buyer = False
         _log(db, conv, current_user, "pickup_suggested", action_data.value)
 
     elif action == "accept_pickup":
@@ -326,10 +404,6 @@ def do_action(db: Session, conv_id: UUID, current_user: User, action_data: Conve
             raise HTTPException(status_code=403, detail="You cannot accept your own suggestion")
         conv.agreed_pickup = conv.suggested_pickup
         conv.status        = ConversationStatus.PICKUP_AGREED
-        if is_buyer:
-            conv.seen_by_seller = False
-        else:
-            conv.seen_by_buyer = False
         _log(db, conv, current_user, "pickup_accepted", conv.agreed_pickup)
 
     # ── CONTACT REVEAL ────────────────────────────────────────────────
@@ -338,8 +412,7 @@ def do_action(db: Session, conv_id: UUID, current_user: User, action_data: Conve
             raise HTTPException(status_code=403, detail="Only the seller can reveal contact")
         if conv.status != ConversationStatus.PICKUP_AGREED:
             raise HTTPException(status_code=400, detail="Pickup must be agreed before revealing contact")
-        conv.status        = ConversationStatus.CONTACT_REVEALED
-        conv.seen_by_buyer = False
+        conv.status = ConversationStatus.CONTACT_REVEALED
         _log(db, conv, current_user, "contact_revealed", None)
 
     # ── CANCEL ────────────────────────────────────────────────────────
@@ -348,10 +421,6 @@ def do_action(db: Session, conv_id: UUID, current_user: User, action_data: Conve
             raise HTTPException(status_code=400, detail=f"Cannot cancel in state: {conv.status}")
         conv.status       = ConversationStatus.CANCELLED
         conv.cancelled_by = current_user.id
-        if is_buyer:
-            conv.seen_by_seller = False
-        else:
-            conv.seen_by_buyer = False
         _log(db, conv, current_user, "cancelled", None)
 
     # ── REOPEN ───────────────────────────────────────────────────────
@@ -367,14 +436,10 @@ def do_action(db: Session, conv_id: UUID, current_user: User, action_data: Conve
         conv.cancelled_by       = None
         conv.suggested_price    = None
         conv.price_suggested_by = None
-        if is_buyer:
-            # Notify seller, and buyer is next actor (must re-suggest price)
-            conv.seen_by_seller = False
-            conv.seen_by_buyer  = False
-        else:
-            # Notify buyer, and buyer is next actor (must re-suggest price)
-            conv.seen_by_buyer = False
         _log(db, conv, current_user, "reopened", None)
+
+    # Apply seen flags from next_actor() — single source of truth, no per-branch logic
+    _apply_seen_flags(conv, current_user.id, conv.status)
 
     db.commit()
     db.refresh(conv)
@@ -385,8 +450,6 @@ def do_action(db: Session, conv_id: UUID, current_user: User, action_data: Conve
 
 def _push_conv_update(db: Session, conv: Conversation, conv_dict: dict):
     """Push SSE updates to both parties after any conversation state change."""
-    # Use relationship attributes — they're in the identity map after any prior access.
-    # Fall back to a query only if the relationship isn't loaded (e.g. after expire_all).
     seller = conv.seller or db.query(User).filter(User.id == conv.seller_id).first()
     buyer  = conv.buyer  or db.query(User).filter(User.id == conv.buyer_id).first()
     if seller:
@@ -400,19 +463,17 @@ def _push_conv_update(db: Session, conv: Conversation, conv_dict: dict):
 
 
 def get_pending_counts(db: Session, current_user: User) -> dict:
-    # Fetch only the columns needed for badge logic — no ORM hydration of relationships.
-    # unseen = notification badge (disappears once opened)
-    # your_turn = persistent action indicator (stays until seller acts)
+    """Seller badge counts. Uses next_actor() logic via thin SQL projection."""
     rows = db.execute(
         text("""
-            SELECT listing_id, status, price_suggested_by, pickup_suggested_by, seen_by_seller
+            SELECT listing_id, status, price_suggested_by, pickup_suggested_by,
+                   buyer_id, seller_id, seen_by_seller
             FROM conversations
             WHERE seller_id = :uid
         """),
         {"uid": current_user.id},
     ).fetchall()
 
-    uid = str(current_user.id)
     unseen_counts    = {}
     your_turn_counts = {}
 
@@ -420,16 +481,10 @@ def get_pending_counts(db: Session, current_user: User) -> dict:
         lid = str(row.listing_id) if row.listing_id else None
         if lid is None:
             continue
-        s = row.status
 
-        your_turn = (
-            s == ConversationStatus.PRICE_PENDING or
-            s == ConversationStatus.PRICE_AGREED or
-            (s == ConversationStatus.PRICE_SUGGESTED and row.price_suggested_by and str(row.price_suggested_by) != uid) or
-            (s == ConversationStatus.PICKUP_SUGGESTED and row.pickup_suggested_by and str(row.pickup_suggested_by) != uid) or
-            s == ConversationStatus.PICKUP_AGREED
-        )
-        unseen = not row.seen_by_seller and s != ConversationStatus.CONTACT_REVEALED
+        actor = next_actor(row.status, row.price_suggested_by, row.pickup_suggested_by, row.buyer_id, row.seller_id)
+        your_turn = actor in ("seller", "both")
+        unseen    = not row.seen_by_seller
 
         if your_turn:
             your_turn_counts[lid] = your_turn_counts.get(lid, 0) + 1
@@ -441,19 +496,17 @@ def get_pending_counts(db: Session, current_user: User) -> dict:
 
 
 def get_buyer_pending_counts(db: Session, current_user: User) -> dict:
-    # Fetch only the columns needed for badge logic — no ORM hydration of relationships.
-    # your_turn = persistent action indicator (not gated on seen_by_buyer)
-    # unseen    = notification badge (cleared once the buyer views the conversation)
+    """Buyer badge counts. Uses next_actor() logic via thin SQL projection."""
     rows = db.execute(
         text("""
-            SELECT listing_id, status, price_suggested_by, pickup_suggested_by, seen_by_buyer
+            SELECT listing_id, status, price_suggested_by, pickup_suggested_by,
+                   buyer_id, seller_id, seen_by_buyer
             FROM conversations
             WHERE buyer_id = :uid
         """),
         {"uid": current_user.id},
     ).fetchall()
 
-    uid = str(current_user.id)
     your_turn_counts = {}
     unseen_counts    = {}
 
@@ -461,17 +514,20 @@ def get_buyer_pending_counts(db: Session, current_user: User) -> dict:
         lid = str(row.listing_id) if row.listing_id else None
         if lid is None:
             continue
-        s = row.status
 
-        your_turn = (
-            s == ConversationStatus.PRICE_PENDING or
-            s == ConversationStatus.PRICE_AGREED or
-            (s == ConversationStatus.PRICE_SUGGESTED and row.price_suggested_by and str(row.price_suggested_by) != uid) or
-            (s == ConversationStatus.PICKUP_SUGGESTED and row.pickup_suggested_by and str(row.pickup_suggested_by) != uid) or
-            # CONTACT_REVEALED and CANCELLED: only "your turn" until buyer has seen it
-            (s == ConversationStatus.CONTACT_REVEALED and not row.seen_by_buyer) or
-            (s == ConversationStatus.CANCELLED and not row.seen_by_buyer)
+        actor = next_actor(row.status, row.price_suggested_by, row.pickup_suggested_by, row.buyer_id, row.seller_id)
+        your_turn = actor in ("buyer", "both")
+        # For "ack-only" terminal states (contact revealed, cancelled) the badge clears
+        # once the buyer has actually seen the conversation. For all active-action states
+        # (price/pickup negotiation) your_turn is independent of seen_by_buyer — the buyer
+        # always needs to take action regardless of whether they've seen the update.
+        ack_only = your_turn and row.status in (
+            ConversationStatus.CONTACT_REVEALED,
+            ConversationStatus.CANCELLED,
         )
+        if ack_only:
+            your_turn = not row.seen_by_buyer
+
         unseen = not row.seen_by_buyer
 
         if your_turn:
@@ -491,16 +547,28 @@ def get_contact(db: Session, conv_id: UUID, current_user: User) -> dict:
         raise HTTPException(status_code=403, detail="Only the buyer can view contact details")
     if conv.status != ConversationStatus.CONTACT_REVEALED:
         raise HTTPException(status_code=403, detail="Seller has not shared contact yet")
+
     seller  = conv.seller  or db.query(User).filter(User.id == conv.seller_id).first()
     listing = conv.listing or db.query(Listing).filter(Listing.id == conv.listing_id).first()
-    # Mark seen for buyer once they fetch contact
+
+    already_seen = conv.seen_by_buyer
     conv.seen_by_buyer = True
+
+    if not already_seen:
+        _log(db, conv, current_user, "seen", None)
+
     db.commit()
-    # Push updated buyer counts so the item badge clears immediately via SSE
+    db.refresh(conv)
+
+    # Push updated buyer counts + updated conversation (with seen event) to both parties
     buyer = db.query(User).filter(User.id == conv.buyer_id).first()
     if buyer:
         buyer_counts = get_buyer_pending_counts(db, buyer)
         _notify(str(conv.buyer_id), {"kind": "buyer_counts", "data": buyer_counts})
+    conv_dict = _to_dict(conv, db)
+    _notify(str(conv.buyer_id),  {"kind": "conversation", "data": conv_dict})
+    _notify(str(conv.seller_id), {"kind": "conversation", "data": conv_dict})
+
     return {
         "phone":     seller.phone,
         "name":      seller.name,
@@ -536,7 +604,6 @@ def get_contacts_revealed_for_listing(db: Session, listing_id: UUID, current_use
 
 def mark_sold_to_buyer(db: Session, listing_id: UUID, buyer_conv_id: UUID, current_user: User) -> dict:
     """Seller confirms which buyer actually bought — marks listing sold, cancels others."""
-    # Lock listing and all conversations for this listing to prevent concurrent mark-sold
     listing = db.query(Listing).filter(Listing.id == listing_id).with_for_update().first()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
@@ -556,12 +623,10 @@ def mark_sold_to_buyer(db: Session, listing_id: UUID, buyer_conv_id: UUID, curre
     if winning_conv.status != ConversationStatus.CONTACT_REVEALED:
         raise HTTPException(status_code=400, detail="Can only confirm a buyer whose contact was already shared")
 
-    # Mark listing sold with the actual buyer
-    listing.status               = ListingStatus.SOLD
-    listing.actual_buyer_id      = winning_conv.buyer_id
-    winning_conv.seen_by_buyer   = False
+    listing.status          = ListingStatus.SOLD
+    listing.actual_buyer_id = winning_conv.buyer_id
+    winning_conv.seen_by_buyer = False
 
-    # Lock and cancel all other active conversations for this listing atomically
     other_convs = (
         db.query(Conversation)
         .filter(
@@ -582,11 +647,9 @@ def mark_sold_to_buyer(db: Session, listing_id: UUID, buyer_conv_id: UUID, curre
     db.refresh(listing)
     db.refresh(winning_conv)
 
-    # Notify winner
     winner_dict = _to_dict(winning_conv, db)
     _push_conv_update(db, winning_conv, winner_dict)
 
-    # Notify each cancelled buyer
     db.expire_all()
     for c in other_convs:
         db.refresh(c)

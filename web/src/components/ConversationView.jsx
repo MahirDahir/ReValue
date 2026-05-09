@@ -13,6 +13,7 @@ const EVENT_LABELS = {
   contact_revealed:    (e) => `${e.actor_name} shared contact details`,
   cancelled:           (e) => e.value ? `Negotiation cancelled — ${e.value}` : `${e.actor_name} withdrew from negotiation`,
   reopened:            (e) => `${e.actor_name} reopened negotiation`,
+  seen:                (e) => `✓ Seen by ${e.actor_name}`,
 }
 
 function fmtTime(iso) {
@@ -56,13 +57,14 @@ function Timeline({ events }) {
         paddingRight: '4px',
       }}>
         {sorted.slice(0, MAX_VISIBLE_EVENTS).map((e, i) => {
+          const isSeen = e.event_type === 'seen'
           const label = EVENT_LABELS[e.event_type]?.(e) || `${e.event_type}${e.value ? ': ' + e.value : ''}`
           return (
-            <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', fontSize: '13px' }}>
+            <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', fontSize: isSeen ? '12px' : '13px', opacity: isSeen ? 0.6 : 1 }}>
               <span style={{ color: '#bbb', whiteSpace: 'nowrap', paddingTop: '1px', minWidth: '80px' }}>
                 {fmtEventTime(e.created_at)}
               </span>
-              <span style={{ color: '#555' }}>{label}</span>
+              <span style={{ color: isSeen ? '#999' : '#555', fontStyle: isSeen ? 'italic' : 'normal' }}>{label}</span>
             </div>
           )
         })}

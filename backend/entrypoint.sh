@@ -54,12 +54,12 @@ except Exception as e:
     print(f"Not ready: {e}")
     sys.exit(1)
 EOF
-  echo "Retry $i/15 — waiting 2s..."
+  echo "Retry $i/15 -- waiting 2s..."
   sleep 2
 done
 
 # Apply all pending migrations
 alembic upgrade head
 
-# SSE uses Redis Pub/Sub — multiple workers are safe (default 2; override via WEB_CONCURRENCY)
+# SSE uses Redis Pub/Sub -- multiple workers are safe (default 2; override via WEB_CONCURRENCY)
 exec uvicorn main:app --host 0.0.0.0 --port "${PORT:-8000}" --workers "${WEB_CONCURRENCY:-2}"
