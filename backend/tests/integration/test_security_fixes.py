@@ -73,15 +73,16 @@ def test_sse_bus_publish_and_receive():
     """notify() must publish a message that a subscriber can read from Redis."""
     import redis as sync_redis
     import json
+    import os
     import services.sse_bus as bus
 
-    redis_url = "redis://localhost:6379/0"
+    redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
-    # Point the bus at the local Redis (tests run outside Docker)
+    # Point the bus at the same Redis the test environment uses
     bus._client = None
     bus._redis_url = redis_url
 
-    r = sync_redis.from_url(redis_url, decode_responses=True)
+    r = sync_redis.from_url(redis_url, decode_responses=True)  # noqa: S324
     pubsub = r.pubsub()
     pubsub.subscribe("sse:test-user-99")
 
