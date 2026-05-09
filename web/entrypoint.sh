@@ -5,7 +5,7 @@ sed -i "s/listen 80;/listen ${PORT};/" /etc/nginx/conf.d/default.conf
 
 # Replace BACKEND_HOST placeholder:
 # - In Docker Compose: BACKEND_HOST=backend (Docker internal hostname)
-# - On Railway/PaaS: BACKEND_HOST=localhost (proxy block unused — VITE_API_URL hits backend directly)
+# - On Railway/PaaS: BACKEND_HOST=localhost (proxy block unused -- VITE_API_URL hits backend directly)
 BACKEND_HOST="${BACKEND_HOST:-localhost}"
 sed -i "s/BACKEND_HOST/${BACKEND_HOST}/g" /etc/nginx/conf.d/default.conf
 
