@@ -11,6 +11,7 @@ Run this after every deploy or significant change.
 - [ ] Login with correct credentials → enters app
 - [ ] Login with wrong password → shows inline error (not global)
 - [ ] Logout → returns to login screen, clears all state
+- [ ] Registration response includes business_name: null, is_verified: false
 
 ---
 
@@ -40,6 +41,36 @@ Run this after every deploy or significant change.
 - [ ] Mark Sold → buyer picker appears (only buyers who reached contact-revealed)
 - [ ] Mark Sold with no eligible buyers → "Mark Sold anyway" option
 - [ ] Reactivate sold listing → status returns to available
+
+---
+
+## Language & i18n
+- [ ] Language toggle (globe icon in header) switches between English and Hebrew
+- [ ] Language persists after page refresh (stored in localStorage key 'lang')
+- [ ] Hebrew mode: layout switches to RTL, all visible text is in Hebrew
+- [ ] English mode: layout is LTR, all text is in English
+- [ ] Status badges, negotiation hints, timeline events all translate correctly
+- [ ] Error messages translate correctly
+
+---
+
+## Weight-based pricing
+- [ ] Create listing with quantity_kg and price_per_kg → card shows ₪X/kg badge
+- [ ] Create listing with only estimated_price → card shows ₪X (flat price)
+- [ ] Create listing with both → card shows ₪X/kg badge (preferred)
+- [ ] ListingForm: entering both weight and price/kg shows live total estimate (~₪X total)
+- [ ] Create listing with neither → no price badge shown
+- [ ] price_per_kg = 0 or negative → rejected with error
+
+---
+
+## Business profiles
+- [ ] Profile page has "Business Profile" section above Change Password
+- [ ] Save business name + type → refreshes displayed values, no page reload
+- [ ] Business name visible on listing cards in buyer mode
+- [ ] Verified business badge (✅ Verified) shown when is_verified = true
+- [ ] Business name empty string → saves as null (no name shown)
+- [ ] Business type dropdown: Contractor / Dealer / Recycler / Factory / Manufacturer / Other / none
 
 ---
 
@@ -77,6 +108,8 @@ Open two browser tabs: Tab A = Seller, Tab B = Buyer
 - [ ] Listing deleted mid-negotiation → buyer gets green notification
 - [ ] Deleted listing disappears from buyer listings instantly
 - [ ] Deleted listing appears in buyer History → Removed tab
+- [ ] Verify SSE connects on login (Network tab → EventSource → stream URL with token)
+- [ ] Verify SSE reconnects after a brief network interruption (browser shows reconnecting)
 
 ---
 

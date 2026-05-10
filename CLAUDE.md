@@ -47,6 +47,10 @@ backend/
     0002_conversations.py              # conversations table
     0003_add_price_suggested_by_and_pickup_slots.py
     0004_conversation_events_and_sold_buyer.py  # events, seen_by_*, actual_buyer_id
+    0005_add_cancelled_by.py           # cancelled_by UUID on conversations
+    0006_listing_removed_flag.py       # listing_removed, listing_title_snapshot on conversations
+    0007_conversations_seller_id_index.py
+    0008_weight_pricing_and_business_profiles.py  # quantity_kg, price_per_kg on listings; business_name, business_type, is_verified on users
   uploads/                             # Local image storage (dev only)
   tests/
     conftest.py
@@ -59,15 +63,16 @@ web/src/
     client.js                          # axios instance + JWT interceptor
     auth.js / listings.js / conversations.js / users.js
   components/
-    Header.jsx                         # Browse + 🤝 Negotiations (badge) + History
+    Header.jsx                         # Browse + 🤝 Negotiations (badge) + History + language toggle
     LoginPage.jsx                      # Local error state (not global context)
     RegisterPage.jsx
     ListingsPage.jsx                   # Grid + category/status filters
-    ListingCard.jsx                    # Card + Mark Sold buyer picker
-    ListingForm.jsx                    # Create + Edit (Leaflet map, pickup slots)
+    ListingCard.jsx                    # Card + Mark Sold buyer picker + business name/verified badge
+    ListingForm.jsx                    # Create + Edit (Leaflet map, pickup slots, weight pricing)
     ConversationView.jsx               # Full timeline + all negotiation actions
     NegotiationsListView.jsx           # Seller: per-listing buyer list
-    HistoryView.jsx                    # 3 tabs: Active / Done / Cancelled
+    HistoryView.jsx                    # 6 tabs: All / Your turn / Waiting / Negotiated / Sold / Cancelled
+    ProfilePage.jsx                    # Password change + business profile form
     MapPicker.jsx                      # LocationPicker + MapRecenter
   constants/categories.js             # WASTE_ICONS, WASTE_CATEGORIES, WASTE_UNITS
   hooks/
@@ -76,7 +81,11 @@ web/src/
     useConversation.js                 # conversation state + markSeen + contactsRevealed
     useGeocoding.js                    # Nominatim reverse geocoding cache
     useSSE.js                          # EventSource wrapper — seller_counts/buyer_counts/conversation events
-  index.css                            # All CSS
+  i18n/
+    index.js                           # i18next init (en + he, localStorage detection)
+    locales/en.json                    # English strings
+    locales/he.json                    # Hebrew strings (RTL)
+  index.css                            # All CSS (includes [dir="rtl"] overrides)
 ```
 
 ## Running the project
@@ -90,9 +99,12 @@ docker-compose logs -f backend        # Follow backend logs
 docker-compose logs -f web
 ```
 
-Tests still run locally:
+Tests:
 ```bash
-cd backend && source venv/Scripts/activate && pytest -v
+# Backend — must run inside Docker (needs live PostgreSQL + Redis)
+docker exec revalue-backend-1 sh -c "cd /app && python -m pytest tests/ -v"
+
+# Frontend — run locally
 cd web && npm test
 ```
 
@@ -136,6 +148,14 @@ price_pending → price_suggested → price_agreed
 - **Single worker required** — SSE uses in-memory asyncio.Queue; multi-worker breaks delivery
 - Nginx must have `proxy_buffering off` on the `/api` location for SSE to stream through
 
+### i18n architecture
+- `i18n/index.js` initialises i18next before React renders (`import './i18n'` in `main.jsx`)
+- Language state lives in i18next (not AppContext) — it already owns localStorage persistence
+- RTL: `App.jsx` watches `i18n.language` and sets `document.documentElement.dir` + `lang`
+- CSS RTL overrides are in `index.css` under `[dir="rtl"]` selectors
+- Test setup (`web/src/test/setup.js`) imports `../i18n` — without it, tests render translation keys instead of strings
+- New i18n keys must be added to **both** `en.json` and `he.json`
+
 ### Backend route ordering
 - In `conversations.py`: `/pending-counts`, `/buyer-pending-counts`, `/mine`, `/my-for-listing/{id}`, `/listing/{id}`, `/contacts-revealed/{id}` must all be declared **before** `/{conv_id}` to prevent FastAPI swallowing them as UUID params.
 
@@ -163,16 +183,26 @@ Tel Aviv, Israel: `latitude: 32.0853, longitude: 34.7818`
 | actor_name | Denormalised name for display (no join needed) |
 | value | Price amount, ISO datetime, or cancel reason |
 
+### User
+| Field | Notes |
+|---|---|
+| business_name | VARCHAR 255, optional — public alias shown on listing cards instead of personal name |
+| business_type | contractor / dealer / factory / other — optional |
+| is_verified | Boolean, default false — set by admin only |
+
 ### Listing
 | Field | Notes |
 |---|---|
 | waste_category | plastic, glass, metal, electronics, other |
 | unit | kg, pieces |
+| quantity_kg | Float, optional — total weight in kg (industrial pricing) |
+| price_per_kg | Float, optional — price per kg in ₪; shown as badge on card, preferred over estimated_price |
+| estimated_price | Float, optional — flat price in ₪ |
 | pickup_slots | JSON array: `[{"day": "monday", "start": "09:00", "end": "17:00"}]` |
 | actual_buyer_id | Set when seller confirms who bought via mark-sold flow |
 
 ## Non-functional features
-- Rate limiting: `/auth/register` 10/min, `/auth/login` 20/min, all routes 200/min (slowapi)
+- Rate limiting: `/auth/register` 10/min, `/auth/login` 20/min, `/listings/` 60/min, `/listings/{id}` 120/min, `/conversations/contact` 20/min (slowapi)
 - Structured JSON logging (structlog) — request method, path, status, duration_ms, ip per request
 - Sentry error tracking (opt-in via SENTRY_DSN env var)
 - DB connection pool: pool_size=5, max_overflow=10, pool_pre_ping, pool_recycle=1800
@@ -186,12 +216,15 @@ Tel Aviv, Israel: `latitude: 32.0853, longitude: 34.7818`
 ## Current feature set
 - Auth: register / login (phone + password), inline error on login failure
 - Mode toggle: Buyer ↔ Seller (persisted in localStorage)
-- Listings: create (Leaflet map + image upload + pickup slots), edit, delete, reactivate
+- Listings: create (Leaflet map + image upload + pickup slots + weight/kg pricing), edit, delete
+- Weight pricing: `quantity_kg` + `price_per_kg` (₪/kg) on listings; live total estimate in form; ₪X/kg badge on card
+- Business profiles: sellers set `business_name` (public) + `business_type`; shown on cards to buyers; `is_verified` admin flag
 - Negotiation: full state machine with event timeline, price + pickup back-and-forth, contact reveal
 - Re-suggest: both parties can update their own pending price/pickup suggestion while waiting
 - Withdraw: both buyer and seller can cancel at any non-terminal state
-- Notifications: per-listing and header badge counts, clear on view
+- Notifications: per-listing and header badge counts, clear on view (SSE-driven, no polling)
 - Mark Sold: buyer selector (only buyers who got contact), auto-cancels others
-- History: 6 tabs (All / Your turn / Waiting / Negotiated / Sold / Cancelled), filtered by current mode (buying vs selling), rows re-open conversation
+- History: 6 tabs (All / Your turn / Waiting / Negotiated / Sold / Cancelled), filtered by mode, rows re-open conversation
 - Seller: per-listing negotiations list with "Action needed" badge
 - Buyer: negotiate button with pending count badge per listing
+- i18n: English + Hebrew, RTL layout, globe toggle in header, language persisted in localStorage
